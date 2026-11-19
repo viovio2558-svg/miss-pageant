@@ -432,6 +432,13 @@ async function adminContent(req, env) {
       prompts: (Array.isArray(b.guide.prompts) ? b.guide.prompts : []).slice(0, 8).map((p) => ({ title: s(p && p.title, 100), text: s(p && p.text, 5000) })),
     };
   }
+  if (b.info && typeof b.info === "object") {
+    const s = (v, n) => String(v || "").trim().slice(0, n);
+    out.info = {
+      format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 12).map((r) => ({ label: s(r && r.label, 80), text: s(r && r.text, 800) })),
+      schedule: (Array.isArray(b.info.schedule) ? b.info.schedule : []).slice(0, 20).map((r) => ({ when: s(r && r.when, 60), title: s(r && r.title, 100), text: s(r && r.text, 400) })),
+    };
+  }
   if (Array.isArray(b.payments)) {
     const s = (v, n) => String(v || "").trim().slice(0, n);
     out.payments = b.payments.map((p) => ({ name: s(p && p.name, 60), no: s(p && p.no, 40), holder: s(p && p.holder, 80), note: s(p && p.note, 200), qr: id(p && p.qr) || "", logo: id(p && p.logo) || "", fee: (p && p.fee !== "" && p.fee != null && Number(p.fee) >= 0 && Number(p.fee) < 1e6) ? Number(p.fee) : null })).filter((p) => p.name || p.no || p.qr || p.logo).slice(0, 6);
