@@ -290,10 +290,12 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .infosec { display: grid; gap: 22px; margin-top: 18px; }
 .infosec h2 { margin: 0 0 10px; font-family: var(--font-display); font-size: 20px; }
 .fmt-frame { --fh: clamp(30px, 8.4vw, 46px); --iw: calc(var(--fh) * .443 + 5px); --lw: clamp(104px, 31%, 190px); font-family: "Nunito Sans", "Nunito", var(--font-body), system-ui, sans-serif; background: #0b0b10; color: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.fmt-top { text-align: center; padding: 10px 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; background: linear-gradient(90deg, transparent, #2a2230 30%, #2a2230 70%, transparent); border-bottom: 1px solid #ffffff1f; }
-.fmt-top b { color: #ffc2e2; font-weight: 600; }
+.fmt-top { text-align: center; padding: 10px 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; background: linear-gradient(90deg, transparent, #2a2230 30%, #2a2230 70%, transparent); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 24%, #0b0b10) 30%, color-mix(in srgb, var(--accent) 24%, #0b0b10) 70%, transparent); border-bottom: 1px solid #ffffff1f; }
+.fmt-top b { color: var(--gold); font-weight: 600; }
 .fmt-top .starsvg { color: #fff; margin: 0 .5em; height: 1.05em; width: 1.05em; }
 .fmt-body { padding: 10px 14px 14px; }
+.fmt-inner { width: 100%; margin: 0 auto; }
+@media (min-width: 700px) { .fmt-inner { width: fit-content; max-width: 100%; --lw: 170px; } .fmt-body { padding: 14px 28px 20px; } .stg-sep { padding-left: 24px; padding-right: 24px; } }
 .stg { display: grid; grid-template-columns: var(--lw) minmax(0, 1fr); gap: 6px 12px; align-items: center; padding: 12px 0 8px; }
 .stg-l { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .stg-pill { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid #fff; border-radius: 14px; padding: 3px 9px; max-width: 118px; line-height: 1.2; }
