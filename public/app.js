@@ -30,8 +30,8 @@
     { h: "กติกาการสมัคร", items: [
       "ผู้สมัครต้องเลือกพื้นที่ที่ต้องการลงประกวด",
       { key: "พื้นที่ที่ยืนยันแล้วถูกล็อกทันที ใครกดยืนยันก่อนได้ก่อน" },
-      { key: "หลังกดยืนยัน ต้องโอนค่าสมัครและแนบสลิปภายใน 5 นาที ถ้าไม่ทัน พื้นที่จะหลุดทันทีและต้องกรอกใหม่" },
-      "ชื่อจะขึ้นในทำเนียบผู้สมัครหลังทีมงานยืนยันการชำระแล้ว",
+      "ไม่มีค่าสมัคร เมื่อกดยืนยัน พื้นที่จะถูกล็อกให้คุณทันที",
+      "ชื่อจะขึ้นในทำเนียบผู้สมัครหลังทีมงานตรวจและกดยืนยันแล้ว",
       "เมื่อส่งใบสมัคร ถือว่ายอมรับกติกาและผลการตัดสินทั้งหมดของเวที",
       "ตรวจเช็กทุกอย่างให้เรียบร้อยก่อนกดยืนยัน"
     ] }
@@ -106,7 +106,7 @@
   document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
 
   /* ---------- derived state ---------- */
-  var STATE_TH = { unpaid: "รอชำระ", pending: "รอตรวจสลิป", approved: "ยืนยันแล้ว", rejected: "สลิปไม่ผ่าน" };
+  var STATE_TH = { unpaid: "รอยืนยัน", pending: "รอแอดมินยืนยัน", approved: "ยืนยันแล้ว", rejected: "ไม่ผ่าน" };
   function chip(st) { return mk("span", "chip " + st, STATE_TH[st]); }
   function chFee(ch) { return ch && ch.fee != null && ch.fee !== "" ? ch.fee : (S.settings.fee != null && S.settings.fee !== "" ? S.settings.fee : null); }
   function feeTextFor(ch) { var f = chFee(ch); return f != null ? baht(f) : "ตามที่ทีมงานแจ้ง"; }
@@ -390,7 +390,7 @@
     });
     updateTimers();
   }
-  function payPanel(m) {
+  function payPanelOld(m) {
     var st = m.state, slip = m.slip;
     var p = mk("div", "pay"), h = mk("h4"); h.appendChild(document.createTextNode("ค่าสมัคร ")); h.appendChild(chip(st)); p.appendChild(h);
     if (st === "unpaid") {
@@ -427,6 +427,10 @@
     });
     p.appendChild(send);
     return p;
+  }
+  function payPanel(m) {
+    var st = m.state === "approved" ? "approved" : "pending", p = mk("div", "pay"), h = mk("h4"); h.appendChild(document.createTextNode("สถานะ ")); h.appendChild(chip(st)); p.appendChild(h);
+    p.appendChild(mk("div", "hint", st === "approved" ? "ทีมงานยืนยันแล้ว ชื่อของคุณขึ้นในทำเนียบผู้สมัครแล้ว" : "ส่งใบสมัครแล้ว รอทีมงานตรวจและกดยืนยัน ชื่อจะขึ้นในทำเนียบหลังยืนยัน")); return p;
   }
   async function sendSlip(slug, file, amount, btn, er) {
     btn.disabled = true; btn.textContent = "กำลังส่ง...";
@@ -478,11 +482,11 @@
   function openConfirm(v) {
     modal(function (m) {
       m.appendChild(mk("h3", null, "ยืนยันเลือก " + v.country.name + "?"));
-      summary(m, [["พื้นที่", v.country.name], ["Username", v.username], ["ชื่อที่ใช้ประกวด", v.fullName], ["รูป", photoFile ? photoFile.name : "ไม่ได้แนบ"], ["ค่าสมัคร", feeText()]]);
-      m.appendChild(mk("div", "lock", "เมื่อกดยืนยัน พื้นที่นี้ถูกล็อกให้คุณทันที และมีเวลา 5 นาทีในการโอนค่าสมัครพร้อมแนบสลิป ถ้าไม่ทัน พื้นที่จะหลุดทันทีและต้องกรอกใหม่"));
+      summary(m, [["พื้นที่", v.country.name], ["Username", v.username], ["ชื่อที่ใช้ประกวด", v.fullName], ["รูป", photoFile ? photoFile.name : "ไม่ได้แนบ"]]);
+      m.appendChild(mk("div", "lock", "เมื่อกดยืนยัน พื้นที่นี้ถูกล็อกให้คุณทันที (ไม่มีค่าสมัคร) แล้วรอทีมงานตรวจและกดยืนยันก่อนชื่อจะขึ้นทำเนียบ แก้ไขภายหลังไม่ได้ กรุณาตรวจให้เรียบร้อย"));
       var row = mk("div", "row"); row.style.justifyContent = "flex-end";
       var cancel = mk("button", "btn ghost", "กลับไปแก้"); cancel.type = "button"; cancel.addEventListener("click", closeModal);
-      var go = mk("button", "btn", "ยืนยัน จองเลย"); go.type = "button"; go.addEventListener("click", function () { runClaim(m, v, go, cancel); });
+      var go = mk("button", "btn", "ยืนยัน ลงทะเบียน"); go.type = "button"; go.addEventListener("click", function () { runClaim(m, v, go, cancel); });
       row.appendChild(cancel); row.appendChild(go); m.appendChild(row);
     });
   }
@@ -500,7 +504,7 @@
       }
       S.sel = null; photoFile = null; $("photo").value = ""; $("fullname").value = ""; updatePhotoUi(); setStatus("");
       S.mineSig = ""; await poll(); renderDock();
-      showResult(m, "จอง " + v.country.name + " สำเร็จ", "ตอนนี้โอนค่าสมัครและแนบสลิปภายใน 5 นาที ดูนาฬิกานับถอยหลังในใบสมัครของคุณ ถ้าไม่ทัน พื้นที่จะหลุดทันที", true);
+      showResult(m, "ส่งใบสมัคร " + v.country.name + " แล้ว", "รอทีมงานตรวจและกดยืนยัน ชื่อจะขึ้นในทำเนียบหลังยืนยัน ถ้ายังไม่ได้แนบรูปโปรไฟล์ อัปโหลดได้ในใบสมัครของคุณ", true);
       setTimeout(function () { var s = $("mineSec"); if (s.scrollIntoView) s.scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
     } catch (e) {
       showResult(m, "จองไม่สำเร็จ", "ย่อรูปหรือส่งข้อมูลไม่สำเร็จ ลองใหม่อีกครั้งหรือเปลี่ยนรูป", false);
@@ -655,19 +659,15 @@
     renderRegionsEd();
     var all = S.adminList, cnt = { pending: 0, unpaid: 0, approved: 0, rejected: 0 };
     all.forEach(function (c) { cnt[c.state]++; });
-    var fee = Number(S.settings.fee), st = $("aStats"); st.textContent = "";
-    [["จองอยู่ทั้งหมด", all.length], ["รอตรวจสลิป", cnt.pending], ["ชำระแล้ว", cnt.approved], ["รอชำระ", cnt.unpaid + cnt.rejected]].forEach(function (x) {
+    var st = $("aStats"); st.textContent = "";
+    [["ผู้สมัครทั้งหมด", all.length], ["รอยืนยัน", cnt.pending + cnt.unpaid + cnt.rejected], ["ยืนยันแล้ว", cnt.approved]].forEach(function (x) {
       var s = mk("div", "stat"); s.appendChild(mk("b", null, String(x[1]))); s.appendChild(mk("span", null, x[0])); st.appendChild(s);
     });
-    var total = 0; all.forEach(function (c) { if (c.state === "approved") total += (c.slip && Number(c.slip.amount)) || (fee > 0 ? fee : 0); });
-    if (total > 0) { var s2 = mk("div", "stat"); s2.appendChild(mk("b", null, total.toLocaleString("th-TH"))); s2.appendChild(mk("span", null, "ยอดที่ยืนยันแล้ว (บาท)")); st.appendChild(s2); }
-    makeTabs($("aTabs"), [
-      { key: "all", label: "ทั้งหมด", sub: all.length }, { key: "pending", label: "รอตรวจ", sub: cnt.pending },
-      { key: "unpaid", label: "รอชำระ", sub: cnt.unpaid }, { key: "approved", label: "ชำระแล้ว", sub: cnt.approved }, { key: "rejected", label: "สลิปไม่ผ่าน", sub: cnt.rejected }
-    ], S.aTab, function (k) { S.aTab = k; renderAdmin(); });
+    makeTabs($("aTabs"), [{ key: "all", label: "ทั้งหมด", sub: all.length }, { key: "pending", label: "รอยืนยัน", sub: cnt.pending + cnt.unpaid + cnt.rejected }, { key: "approved", label: "ยืนยันแล้ว", sub: cnt.approved }], S.aTab, function (k) { S.aTab = k; renderAdmin(); });
     var q = S.aQ.trim().toLowerCase();
     var list = all.filter(function (c) {
-      if (S.aTab !== "all" && c.state !== S.aTab) return false;
+      if (S.aTab === "pending" && c.state === "approved") return false;
+      if (S.aTab === "approved" && c.state !== "approved") return false;
       return !q || (c.country + " " + c.fullName + " " + c.username).toLowerCase().indexOf(q) !== -1;
     });
     var host = $("aList"); host.textContent = ""; list.forEach(function (c) { host.appendChild(adminRow(c)); });
@@ -675,7 +675,7 @@
     renderEditor();
     if (!S.settingsFilled && S.loaded) {
       S.settingsFilled = true;
-      $("setFee").value = S.settings.fee != null ? S.settings.fee : ""; $("setOpen").checked = S.settings.open !== false;
+      $("setOpen").checked = S.settings.open !== false;
       $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || ""; $("setFont").value = S.settings.font || "Nunito Sans Expanded"; $("setStar").checked = S.settings.star !== false; $("setPresText").value = S.settings.presText || ""; $("setPresUrl").value = S.settings.presUrl || ""; var th = S.settings.theme || {}; $("thBg").value = th.bg || THEME_DEF.bg; $("thAccent").value = th.accent || THEME_DEF.accent; $("thGold").value = th.gold || THEME_DEF.gold;
     }
   }
@@ -685,21 +685,18 @@
     var pb = mk("button"); pb.type = "button"; pb.setAttribute("aria-label", "ดูรูปโปรไฟล์"); pb.appendChild(picEl(c.photoId, "รูป " + c.fullName));
     if (c.photoId) pb.addEventListener("click", function () { lightbox(c.country + " · " + c.fullName, secureBlobUrl(c.photoId), function () { savePhoto(c); }); }); else pb.style.cursor = "default";
     th.appendChild(pb);
-    var sb = mk("button"); sb.type = "button"; sb.setAttribute("aria-label", "ดูสลิป");
-    if (slip) { sb.appendChild(secureImg(slip.imageId, "สลิป")); sb.addEventListener("click", function () { lightbox("สลิป " + c.country + (slip.amount ? " · " + baht(slip.amount) : ""), secureBlobUrl(slip.imageId)); }); }
-    else { sb.appendChild(mk("div", "ph", "ไม่มีสลิป")); sb.style.cursor = "default"; }
-    th.appendChild(sb); r.appendChild(th);
+    var sb = null;
+    th.appendChild(pb); r.appendChild(th);
     var info = mk("div", "info");
     info.appendChild(mk("div", "c", c.country));
     info.appendChild(mk("div", "s", c.fullName + " · " + c.username));
     info.appendChild(mk("div", "s", "จองเมื่อ " + fmtDate(c.claimedAt)));
-    if (slip) info.appendChild(mk("div", "s", "สลิปส่งเมื่อ " + fmtDate(slip.uploadedAt) + (slip.amount ? " · แจ้งโอน " + baht(slip.amount) : "")));
+    if (false) info.appendChild(mk("div", "s", "สลิปส่งเมื่อ " + fmtDate(slip.uploadedAt) + (slip.amount ? " · แจ้งโอน " + baht(slip.amount) : "")));
     if (st === "rejected" && c.note) info.appendChild(mk("div", "s", "เหตุผล: " + c.note));
-    var cw = mk("div"); cw.style.marginTop = "4px"; cw.appendChild(chip(st)); info.appendChild(cw); r.appendChild(info);
+    var cw = mk("div"); cw.style.marginTop = "4px"; cw.appendChild(chip(st === "approved" ? "approved" : "pending")); info.appendChild(cw); r.appendChild(info);
     var acts = mk("div", "acts");
     function act(label, cls, fn) { var b = mk("button", "btn sm " + cls, label); b.type = "button"; b.addEventListener("click", fn); acts.appendChild(b); }
-    if (slip && st !== "approved") act("อนุมัติ", "ok", function () { review(c, "approved", ""); });
-    if (slip && st !== "rejected") act("ไม่ผ่าน", "warn", function () { openReject(c); });
+    if (st !== "approved") act("ยืนยัน ขึ้นทำเนียบ", "ok", function () { review(c, "approved", ""); });
     if (c.photoId) act("บันทึกรูป", "ghost", function () { savePhoto(c); });
     act("ปล่อยพื้นที่", "warn", function () { openRelease(c); });
     r.appendChild(acts); return r;
@@ -788,7 +785,6 @@
     u1.appendChild(uploadBtn("+ เพิ่มรูปหน้าแรก", true, 2400, function (ids) { return edit(function (n) { n.hero = (n.hero || []).concat(ids.map(function (id) { return { asset: id }; })); }); }));
     h1.appendChild(u1); host.appendChild(h1);
 
-    paymentsEditor(host);
     guideEditor(host);
   }
 
@@ -824,7 +820,7 @@
     saveBlob("miss-moohong-registrations.csv", new Blob([data], { type: "text/csv;charset=utf-8" }));
   }
   async function saveSettings() {
-    var btn = $("setSave"), fee = $("setFee").value.trim(), o = fromLocalInput($("setOpensAt").value), c = fromLocalInput($("setClosesAt").value);
+    var btn = $("setSave"), fee = "", o = fromLocalInput($("setOpensAt").value), c = fromLocalInput($("setClosesAt").value);
     $("setMsg").textContent = "";
     if (o && c && c <= o) { $("setMsg").textContent = "เวลาปิดต้องหลังเวลาเปิด"; return; }
     btn.disabled = true;

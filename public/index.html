@@ -340,7 +340,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
     <section>
       <div class="sh"><h2>ผู้เข้าประกวดล่าสุด</h2><small><a href="#roster">ดูทั้งหมด</a></small></div>
       <ul class="people" id="homePeople" style="margin-top:12px"></ul>
-      <div class="empty" id="homeEmpty" hidden>ยังไม่มีผู้เข้าประกวดที่ยืนยันชำระแล้ว เป็นคนแรกได้เลย</div>
+      <div class="empty" id="homeEmpty" hidden>ยังไม่มีผู้เข้าประกวด เป็นคนแรกได้เลย</div>
     </section>
   </main>
 
@@ -349,7 +349,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
     <header class="mast">
       <div class="eyebrow" id="rosterEyebrow">ทำเนียบ · Miss India</div>
       <h1 class="title">ทำเนียบผู้สมัคร</h1>
-      <p class="lead">แสดงเฉพาะผู้สมัครที่ทีมงานยืนยันการชำระค่าสมัครแล้ว</p>
+      <p class="lead">แสดงเฉพาะผู้สมัครที่ทีมงานยืนยันแล้ว</p>
     </header>
     <section class="sec">
       <input class="input" id="rQ" type="search" placeholder="ค้นหาพื้นที่ ชื่อ หรือ Username" aria-label="ค้นหาในทำเนียบ">
@@ -363,7 +363,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
     <header class="mast">
       <div class="eyebrow">สมัครเข้าประกวด</div>
       <h1 class="title" id="regTitle">Register Now for Miss India</h1>
-      <p class="lead">อ่านกติกา กรอกข้อมูล เลือกพื้นที่ แล้วโอนค่าสมัครภายใน 5 นาทีหลังกดยืนยัน</p>
+      <p class="lead">อ่านกติกา กรอกข้อมูล เลือกพื้นที่ แล้วกดยืนยัน (ไม่มีค่าสมัคร)</p>
     </header>
     <div id="closedNote" class="notice warn" hidden></div>
 
@@ -413,7 +413,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
     </section>
 
     <section class="sec" id="mineSec" hidden aria-labelledby="h-mine">
-      <h2 id="h-mine">ใบสมัครของคุณ <small>โอนค่าสมัครและแนบสลิปให้ทันเวลา</small></h2>
+      <h2 id="h-mine">ใบสมัครของคุณ <small>สถานะใบสมัคร</small></h2>
       <div class="mine-list" id="mineList"></div>
     </section>
   </main>
@@ -436,12 +436,12 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
       <div class="stats" id="aStats"></div>
 
       <section class="sec">
-        <h2>ผู้สมัคร <small>ตรวจสลิป ดูรูป และบันทึกรูป</small></h2>
+        <h2>ผู้สมัคร <small>ตรวจ ยืนยัน และบันทึกรูป</small></h2>
         <div class="tabs" role="tablist" id="aTabs"></div>
         <input class="input" id="aQ" type="search" placeholder="ค้นหาพื้นที่ ชื่อ หรือ Username" aria-label="ค้นหาผู้สมัคร">
         <div class="row">
           <button class="btn ghost sm" id="zipAll" type="button">ZIP รูปทั้งหมด</button>
-          <button class="btn ghost sm" id="zipPaid" type="button">ZIP รูปเฉพาะชำระแล้ว</button>
+          <button class="btn ghost sm" id="zipPaid" type="button" hidden>ZIP</button>
           <button class="btn ghost sm" id="csvBtn" type="button">ดาวน์โหลดรายชื่อ CSV</button>
         </div>
         <div class="alist" id="aList"></div>
@@ -472,7 +472,6 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
           <div class="field"><label for="thAccent">สีหลัก (ปุ่ม/ไฮไลต์)</label><input id="thAccent" type="color" value="#8ea4ff" style="width:100%;height:40px"></div>
           <div class="field"><label for="thGold">สีรอง (หัวข้อ/ตัวเน้น)</label><input id="thGold" type="color" value="#ecd9a0" style="width:100%;height:40px"></div>
           <div class="field"><label for="thReset">&nbsp;</label><button class="btn ghost" id="thReset" type="button">คืนสีเดิม</button></div>
-          <div class="field"><label for="setFee">ค่าสมัคร (บาท)</label><input class="input" id="setFee" type="number" min="0" step="1" inputmode="numeric" placeholder="เช่น 50"></div>
           <div class="field"><label for="setOpensAt">เปิดรับสมัคร</label><input class="input" id="setOpensAt" type="datetime-local"></div>
           <div class="field"><label for="setClosesAt">ปิดรับสมัคร</label><input class="input" id="setClosesAt" type="datetime-local"></div>
         </div>
