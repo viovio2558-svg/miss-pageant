@@ -435,7 +435,17 @@ async function adminContent(req, env) {
   if (b.info && typeof b.info === "object") {
     const s = (v, n) => String(v || "").trim().slice(0, n);
     out.info = {
-      format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 12).map((r) => { const podium = r && r.kind === "podium"; return { label: s(r && r.label, 80), kind: podium ? "podium" : "row", count: Math.max(0, Math.min(podium ? 8 : 40, parseInt(r && r.count, 10) || 0)), extra: podium ? "" : s(r && r.extra, 30) }; }),
+      formatTitle: s(b.info.formatTitle, 80),
+      format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 14).map((r) => {
+        const podium = r && r.kind === "podium";
+        return {
+          label: s(r && r.label, 40), pill: s(r && r.pill, 40), kind: podium ? "podium" : "row",
+          count: Math.max(0, Math.min(podium ? 8 : 60, parseInt(r && r.count, 10) || 0)),
+          perRow: Math.max(0, Math.min(30, parseInt(r && r.perRow, 10) || 0)),
+          sub: s(r && r.sub, 80), note: s(r && r.note, 100), extraTitle: s(r && r.extraTitle, 40),
+          extras: (Array.isArray(r && r.extras) ? r.extras : []).slice(0, 6).map((x) => s(x, 30)).filter(Boolean),
+        };
+      }),
       schedule: (Array.isArray(b.info.schedule) ? b.info.schedule : []).slice(0, 20).map((r) => ({ when: s(r && r.when, 60), title: s(r && r.title, 100), text: s(r && r.text, 400), url: cleanUrl(r && r.url), linkText: s(r && r.linkText, 30) })),
     };
   }
