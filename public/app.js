@@ -63,7 +63,7 @@
 
   var S = {
     offset: 0, settings: {}, content: {}, taken: {}, approved: [], me: [], admin: false, adminList: [],
-    regions: [], regSig: "", themeSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
+    regions: [], regSig: "", fontSig: "", themeSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
     rTab: "all", rQ: "", aTab: "all", aQ: "", mineSig: "", edSig: "", heroSig: "", settingsFilled: false,
     heroIdx: 0, heroTimer: null, polling: false, pollTimer: null, queue: Promise.resolve(), blobs: {}
   };
@@ -676,7 +676,7 @@
     if (!S.settingsFilled && S.loaded) {
       S.settingsFilled = true;
       $("setFee").value = S.settings.fee != null ? S.settings.fee : ""; $("setOpen").checked = S.settings.open !== false;
-      $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || ""; var th = S.settings.theme || {}; $("thBg").value = th.bg || THEME_DEF.bg; $("thAccent").value = th.accent || THEME_DEF.accent; $("thGold").value = th.gold || THEME_DEF.gold;
+      $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || ""; $("setFont").value = S.settings.font || "Nunito Sans Expanded"; $("setStar").checked = S.settings.star !== false; $("setPresText").value = S.settings.presText || ""; $("setPresUrl").value = S.settings.presUrl || ""; var th = S.settings.theme || {}; $("thBg").value = th.bg || THEME_DEF.bg; $("thAccent").value = th.accent || THEME_DEF.accent; $("thGold").value = th.gold || THEME_DEF.gold;
     }
   }
   function adminRow(c) {
@@ -828,7 +828,7 @@
     $("setMsg").textContent = "";
     if (o && c && c <= o) { $("setMsg").textContent = "เวลาปิดต้องหลังเวลาเปิด"; return; }
     btn.disabled = true;
-    var r = await adminCall("/api/admin/settings", { fee: fee === "" ? null : Number(fee), open: $("setOpen").checked, opensAt: o, closesAt: c, note: $("setNote").value.trim(), eventName: $("setEvent").value.trim(), theme: { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value } });
+    var r = await adminCall("/api/admin/settings", { fee: fee === "" ? null : Number(fee), open: $("setOpen").checked, opensAt: o, closesAt: c, note: $("setNote").value.trim(), eventName: $("setEvent").value.trim(), font: $("setFont").value, star: $("setStar").checked, presText: $("setPresText").value.trim(), presUrl: $("setPresUrl").value.trim(), theme: { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value } });
     $("setMsg").textContent = r.ok ? "บันทึกแล้ว" : "บันทึกไม่สำเร็จ"; btn.disabled = false;
     if (r.ok) await poll();
   }
@@ -848,11 +848,39 @@
     r.setProperty("--accent", ac); r.setProperty("--accent-ink", lum(ac) > 0.55 ? "#0a0f2c" : "#ffffff"); r.setProperty("--gold", go);
     r.colorScheme = light ? "light" : "dark";
   }
-  function fillBrand(el, first, rest) { el.textContent = first + (rest ? " " + rest : ""); }
+  var STAR_D = (function () {
+    var pts = [], L = [50, 7, 21, 7];
+    for (var i = 0; i < 16; i++) { var r = i % 2 === 0 ? (i % 4 === 0 ? 50 : 21) : 6, a = (i * 22.5 - 90) * Math.PI / 180; pts.push((50 + r * Math.cos(a)).toFixed(1) + "," + (50 + r * Math.sin(a)).toFixed(1)); }
+    return "M" + pts.join("L") + "Z";
+  })();
+  function starEl() {
+    var ns = "http://www.w3.org/2000/svg", s = document.createElementNS(ns, "svg"); s.setAttribute("viewBox", "0 0 100 100"); s.setAttribute("class", "starsvg"); s.setAttribute("aria-hidden", "true");
+    var p = document.createElementNS(ns, "path"); p.setAttribute("d", STAR_D); s.appendChild(p); return s;
+  }
+  function fillBrand(el, name, star) {
+    el.textContent = ""; var parts = name.split(" "), first = parts.shift(), rest = parts.join(" ");
+    el.appendChild(document.createTextNode(first));
+    if (rest) { if (star) el.appendChild(starEl()); else el.appendChild(document.createTextNode(" ")); el.appendChild(document.createTextNode(rest)); }
+  }
+  function fillPresented(el) {
+    el.textContent = ""; var t = String(S.settings.presText || "").trim() || "Miss Moohong", u = S.settings.presUrl;
+    el.appendChild(document.createTextNode("Presented by "));
+    var x;
+    if (u && /^https?:\/\//i.test(u)) { x = mk("a", null, t); x.href = u; x.target = "_blank"; x.rel = "noopener noreferrer"; } else x = mk("u", null, t);
+    el.appendChild(x);
+  }
+  function applyFont() {
+    var f = S.settings.font || "Nunito Sans Expanded"; if (f === S.fontSig) return; S.fontSig = f;
+    var wide = f === "Nunito Sans Expanded", name = wide ? "Nunito Sans" : f;
+    var fam = '"' + name + '", "Prompt", system-ui, sans-serif';
+    ["brandName", "heroName"].forEach(function (id) { $(id).style.fontFamily = fam; $(id).style.fontStretch = wide ? "125%" : "normal"; });
+    if (!document.getElementById("fontLink")) { var l = document.createElement("link"); l.id = "fontLink"; l.rel = "stylesheet"; document.head.appendChild(l); }
+    var l2 = document.getElementById("fontLink"); if (l2) l2.href = "https://fonts.googleapis.com/css2?family=" + (wide ? "Nunito+Sans:wdth,wght@75..125,400..900" : encodeURIComponent(name).replace(/%20/g, "+") + ":wght@400;700") + "&display=swap";
+  }
   function applyBrand() {
     var name = String(S.settings.eventName || "").trim() || "Miss India";
-    if (name === S.brandSig) return; S.brandSig = name;
-    $("brandName").textContent = name; $("heroName").textContent = name;
+    var sig = name + "|" + (S.settings.star !== false) + "|" + (S.settings.presText || "") + "|" + (S.settings.presUrl || ""); if (sig === S.brandSig) return; S.brandSig = sig;
+    var st = S.settings.star !== false; fillBrand($("brandName"), name, st); fillBrand($("heroName"), name, st); fillPresented($("presNav")); fillPresented($("presHero"));
     document.title = name; $("hero").setAttribute("aria-label", name);
     $("rosterEyebrow").textContent = "ทำเนียบ · " + name; $("regTitle").textContent = "Register Now for " + name;
     $("adminTitle").textContent = "แอดมิน " + name; $("foot").textContent = "ติดตามข่าวสารจากทีมงาน " + name;
@@ -883,7 +911,7 @@
     if (S.loaded) poll();
   }
   function render() {
-    applyBrand(); applyTheme();
+    applyBrand(); applyTheme(); applyFont();
     if (S.view === "home") renderHome(); else if (S.view === "roster") renderRoster(); else if (S.view === "register") renderRegister(); else if (S.view === "admin") renderAdmin();
     renderDock();
   }

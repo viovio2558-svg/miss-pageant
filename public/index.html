@@ -53,6 +53,12 @@ a { color: var(--accent); }
 .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding-top: 16px; }
 .brand { font-family: var(--font-display); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 14px; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .brand i { font-style: normal; color: var(--gold); }
+.brandbox { display: flex; flex-direction: column; gap: 2px; }
+.starsvg { display: inline-block; height: .95em; width: .95em; vertical-align: -.12em; margin: 0 .18em; fill: currentColor; filter: drop-shadow(0 0 4px currentColor); }
+.presented { font-family: var(--font-body); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.presented a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.presented u { text-underline-offset: 2px; }
+.hero-cta .presented { color: #dfe4fa; font-size: 11px; text-shadow: 0 1px 8px #000a; margin-top: -2px; }
 .links { display: flex; gap: 6px; flex-wrap: wrap; }
 .links a { text-decoration: none; color: var(--muted); font-family: var(--font-display); font-weight: 500; font-size: 14px; padding: 6px 12px; border-radius: 99px; }
 .links a:hover { color: var(--ink); }
@@ -306,7 +312,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 <body>
 <div class="wrap">
   <nav class="nav" aria-label="เมนูหลัก">
-    <a class="brand" href="#home" id="brandName">Miss India</a>
+    <div class="brandbox"><a class="brand" href="#home" id="brandName">Miss India</a><div class="presented" id="presNav"></div></div>
     <div class="links">
       <a href="#home" data-link="home">หน้าแรก</a>
       <a href="#roster" data-link="roster">ทำเนียบผู้สมัคร</a>
@@ -324,6 +330,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
       <div class="hero-dots" id="heroDots"></div>
       <div class="hero-cta">
         <div class="hero-title" aria-hidden="true"><span id="heroName">Miss India</span></div>
+        <div class="presented" id="presHero"></div>
         <a class="btn" href="#register">สมัคร</a>
         <div class="st" id="heroSt"></div>
       </div>
@@ -457,6 +464,10 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
         <h2>ตั้งค่าการรับสมัคร</h2>
         <div class="form-grid">
           <div class="field"><label for="setEvent">ชื่อเวที (แก้ได้ทุกปี)</label><input class="input" id="setEvent" maxlength="40" placeholder="เช่น Miss India, Miss Japan"></div>
+          <div class="field"><label for="setFont">ฟอนต์ชื่อเวที</label><select class="input" id="setFont"><option>Nunito Sans Expanded</option><option>Prompt</option><option>Montserrat</option><option>Syncopate</option><option>Unbounded</option><option>Josefin Sans</option><option>Playfair Display</option><option>Cinzel</option><option>Bebas Neue</option></select></div>
+          <div class="field"><label for="setStar">ดาวคั่นชื่อ</label><label class="check"><input type="checkbox" id="setStar" checked> <span>แสดงดาว (Miss ✦ India)</span></label></div>
+          <div class="field"><label for="setPresText">ผู้จัดหลัก (ข้อความหลัง PRESENTED BY)</label><input class="input" id="setPresText" maxlength="40" placeholder="Miss Moohong"></div>
+          <div class="field"><label for="setPresUrl">ลิงก์เว็บผู้จัดหลัก</label><input class="input" id="setPresUrl" type="url" placeholder="https://..."></div>
           <div class="field"><label for="thBg">สีพื้นหลัง</label><input id="thBg" type="color" value="#090d1e" style="width:100%;height:40px"></div>
           <div class="field"><label for="thAccent">สีหลัก (ปุ่ม/ไฮไลต์)</label><input id="thAccent" type="color" value="#8ea4ff" style="width:100%;height:40px"></div>
           <div class="field"><label for="thGold">สีรอง (หัวข้อ/ตัวเน้น)</label><input id="thGold" type="color" value="#ecd9a0" style="width:100%;height:40px"></div>
