@@ -109,8 +109,12 @@ function cleanTheme(t) {
   t = t || {};
   return { bg: hex(t.bg), accent: hex(t.accent), gold: hex(t.gold) };
 }
+const DEF_FONT = "Nunito Sans Expanded";
+const FONTS = [DEF_FONT, "Prompt", "Montserrat", "Syncopate", "Unbounded", "Josefin Sans", "Playfair Display", "Cinzel", "Bebas Neue"];
+function cleanFont(v) { return FONTS.includes(v) ? v : DEF_FONT; }
+function cleanUrl(v) { v = String(v || "").trim().slice(0, 300); return /^https?:\/\/[^\s"<>]+$/i.test(v) ? v : ""; }
 function cleanSettings(s) {
-  return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME, theme: cleanTheme(s.theme) };
+  return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME, theme: cleanTheme(s.theme), font: cleanFont(s.font), star: s.star !== false, presText: s.presText || "Miss Moohong", presUrl: cleanUrl(s.presUrl) };
 }
 function schedule(s, t) {
   if (s.open === false) return false;
@@ -385,6 +389,10 @@ async function adminSettings(req, env) {
     note: String(b.note || "").slice(0, 500),
     eventName: String(b.eventName || "").trim().replace(/\s+/g, " ").slice(0, 40) || DEFAULT_EVENT_NAME,
     theme: cleanTheme(b.theme),
+    font: cleanFont(b.font),
+    star: b.star !== false,
+    presText: String(b.presText || "").trim().replace(/\s+/g, " ").slice(0, 40) || "Miss Moohong",
+    presUrl: cleanUrl(b.presUrl),
   };
   if (s.opensAt && s.closesAt && s.closesAt <= s.opensAt) return fail(400, "bad_range", "เวลาปิดต้องหลังเวลาเปิด");
   await kvSet(env, "settings", s).run();
