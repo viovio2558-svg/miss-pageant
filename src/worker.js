@@ -3,7 +3,7 @@ import { slugify, DEFAULT_REGIONS, DEFAULT_EVENT_NAME } from "./regions.js";
 const HOLD_MS = 5 * 60 * 1000; // เวลาโอนเงินหลังกดยืนยัน
 const GRACE_MS = 10 * 1000; // เผื่อเวลาให้สลิปที่กำลังอัปโหลดอยู่
 const MAX_IMG = 1900000; // D1 เก็บได้ไม่เกิน 2 MB ต่อแถว
-const MAX_PER_IP = 3; // จำนวนประเทศที่กำลังรอโอนต่อ 1 IP
+const MAX_PER_IP = 5; // จำนวนใบสมัครสูงสุดต่อ 1 IP (กันสแปม)
 const OWNER_RE = /^[A-Za-z0-9_-]{20,64}$/;
 const USER_RE = /^@[A-Za-z0-9_.]{2,32}$/;
 const ID_RE = /^[a-f0-9]{32}$/;
@@ -205,8 +205,8 @@ async function apiClaim(req, env, ip) {
   const same = (await env.DB.prepare("SELECT slug FROM countries WHERE lower(username) = ? AND (slip_at IS NOT NULL OR expires_at + ? > ?)").bind(username.toLowerCase(), GRACE_MS, t).all()).results || [];
   if (same.length >= 1) return fail(409, "username_limit", "Username นี้ลงสมัครไปแล้ว (สมัครได้คนละ 1 พื้นที่)");
 
-  const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM countries WHERE ip = ? AND slip_at IS NULL AND expires_at + ? > ?").bind(ip, GRACE_MS, t).first();
-  if (cnt && cnt.n >= MAX_PER_IP) return fail(429, "too_many", "มีพื้นที่ที่รอโอนเงินจากอุปกรณ์นี้หลายรายการแล้ว รอให้หมดเวลาหรือแนบสลิปก่อน");
+  const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM countries WHERE ip = ?").bind(ip).first();
+  if (cnt && cnt.n >= MAX_PER_IP) return fail(429, "too_many", "มีการลงสมัครจากเครือข่ายนี้หลายรายการแล้ว หากเป็นข้อผิดพลาดให้ติดต่อทีมงาน");
 
   let photoId = null, img = null;
   const file = form.get("photo");
@@ -222,8 +222,11 @@ async function apiClaim(req, env, ip) {
   if (img) stmts.push(...insertImageStmts(env, photoId, "profile", img.mime, img.buf));
   stmts.push(
     env.DB.prepare(
-      "INSERT INTO countries (slug, owner, country, continent, username, full_name, photo_id, claimed_at, expires_at, slip_at, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)"
-    ).bind(slug, owner, c.name, c.continent, username, fullName, photoId, t, t + HOLD_MS, ip)
+      "INSERT INTO countries (slug, owner, country, continent, username, full_name, photo_id, claimed_at, expires_at, slip_at, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(slug, owner, c.name, c.continent, username, fullName, photoId, t, t, t, ip),
+    // เวอร์ชันนี้ไม่มีการชำระเงิน: ลงทะเบียนแล้วรอแอดมินกดยืนยันก่อนขึ้นทำเนียบ
+    env.DB.prepare("INSERT OR REPLACE INTO slips (slug, image_id, amount, uploaded_at) VALUES (?, 'free', NULL, ?)").bind(slug, t),
+    env.DB.prepare("DELETE FROM reviews WHERE slug = ?").bind(slug)
   );
   try {
     await env.DB.batch(stmts);
@@ -232,7 +235,7 @@ async function apiClaim(req, env, ip) {
     throw e;
   }
   memo = null;
-  return json({ ok: true, slug, expiresAt: t + HOLD_MS });
+  return json({ ok: true, slug, expiresAt: t });
 }
 
 async function ownedLive(env, slug, owner) {
