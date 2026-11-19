@@ -310,8 +310,14 @@
     m.appendChild(mk("div", "c", c.country)); m.appendChild(mk("div", "nm", c.fullName)); m.appendChild(mk("div", "u", c.username));
     m.appendChild(chip("approved")); li.appendChild(m); return li;
   }
+  function renderInfo() {
+    var info = S.content.info || {}, f = (info.format || []).filter(function (x) { return x.label || x.text; }), s = (info.schedule || []).filter(function (x) { return x.when || x.title || x.text; });
+    $("infoSec").hidden = !f.length && !s.length; $("fmtSec").hidden = !f.length; $("schSec").hidden = !s.length;
+    var fl = $("fmtList"); fl.textContent = ""; f.forEach(function (x) { var c = mk("div", "fmt-card"); if (x.label) c.appendChild(mk("b", null, x.label)); if (x.text) c.appendChild(mk("p", null, x.text)); fl.appendChild(c); });
+    var sl = $("schList"); sl.textContent = ""; s.forEach(function (x) { var li = mk("li"); if (x.when) li.appendChild(mk("div", "w", x.when)); if (x.title) li.appendChild(mk("div", "t", x.title)); if (x.text) li.appendChild(mk("div", "d", x.text)); sl.appendChild(li); });
+  }
   function renderHome() {
-    renderHero();
+    renderHero(); renderInfo();
     var note = S.settings.note; $("homeNote").hidden = !note; if (note) $("homeNote").textContent = note;
     var list = S.approved.slice(-8).reverse(), host = $("homePeople"); host.textContent = "";
     list.forEach(function (c) { host.appendChild(personCard(c)); });
@@ -598,6 +604,48 @@
     wrap.appendChild(add);
     host.appendChild(wrap);
   }
+  function getInfo() { var i = S.content.info || {}; return { format: i.format || [], schedule: i.schedule || [] }; }
+  function saveInfo(fn) { return edit(function (x) { x.info = x.info || { format: [], schedule: [] }; x.info.format = x.info.format || []; x.info.schedule = x.info.schedule || []; fn(x.info); }); }
+  function infoEditor(host) {
+    var g = getInfo(), wrap = mk("div");
+    wrap.appendChild(mk("div", "sub-h", "รูปแบบการแข่งขัน (หน้าแรก)"));
+    wrap.appendChild(mk("div", "hint", "แสดงเป็นการ์ดใต้ภาพสไลด์ แก้ข้อความแล้วคลิกออกจากช่อง ระบบบันทึกให้อัตโนมัติ ถ้าไม่มีรายการ หัวข้อนี้จะไม่แสดง"));
+    var list = mk("div"); list.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
+    g.format.forEach(function (r, i) {
+      var c = mk("div", "gcard");
+      var l = mk("input", "input"); l.value = r.label; l.placeholder = "หัวข้อ เช่น รอบคัดเลือก"; l.setAttribute("aria-label", "หัวข้อ");
+      var t = mk("textarea", "input"); t.value = r.text; t.placeholder = "รายละเอียด"; t.setAttribute("aria-label", "รายละเอียด");
+      l.addEventListener("change", function () { saveInfo(function (x) { x.format[i].label = l.value.trim(); }); });
+      t.addEventListener("change", function () { saveInfo(function (x) { x.format[i].text = t.value.trim(); }); });
+      c.appendChild(l); c.appendChild(t);
+      var row = mk("div", "row");
+      row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var a = x.format[i - 1]; x.format[i - 1] = x.format[i]; x.format[i] = a; } }); }, i === 0));
+      row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.format.splice(i, 1); }); }));
+      c.appendChild(row); list.appendChild(c);
+    });
+    wrap.appendChild(list);
+    var a1 = mk("div", "row"); a1.style.marginTop = "10px"; a1.appendChild(moveBtn("+ เพิ่มรูปแบบการแข่งขัน", function () { saveInfo(function (x) { x.format.push({ label: "หัวข้อใหม่", text: "" }); }); })); wrap.appendChild(a1);
+    wrap.appendChild(mk("div", "sub-h", "กำหนดการ (หน้าแรก)")).style.marginTop = "18px";
+    wrap.appendChild(mk("div", "hint", "แสดงเป็นไทม์ไลน์ เช่น วันที่/ช่วงเวลา + กิจกรรม"));
+    var sl = mk("div"); sl.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
+    g.schedule.forEach(function (r, i) {
+      var c = mk("div", "gcard");
+      var w = mk("input", "input"); w.value = r.when; w.placeholder = "วัน/เวลา เช่น 5 ธ.ค. 20:00"; w.setAttribute("aria-label", "วันและเวลา");
+      var l = mk("input", "input"); l.value = r.title; l.placeholder = "กิจกรรม เช่น ปิดรับสมัคร"; l.setAttribute("aria-label", "กิจกรรม");
+      var t = mk("textarea", "input"); t.value = r.text; t.placeholder = "รายละเอียดเพิ่มเติม (ไม่บังคับ)"; t.setAttribute("aria-label", "รายละเอียด");
+      w.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].when = w.value.trim(); }); });
+      l.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].title = l.value.trim(); }); });
+      t.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].text = t.value.trim(); }); });
+      c.appendChild(w); c.appendChild(l); c.appendChild(t);
+      var row = mk("div", "row");
+      row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var a = x.schedule[i - 1]; x.schedule[i - 1] = x.schedule[i]; x.schedule[i] = a; } }); }, i === 0));
+      row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.schedule.splice(i, 1); }); }));
+      c.appendChild(row); sl.appendChild(c);
+    });
+    wrap.appendChild(sl);
+    var a2 = mk("div", "row"); a2.style.marginTop = "10px"; a2.appendChild(moveBtn("+ เพิ่มกำหนดการ", function () { saveInfo(function (x) { x.schedule.push({ when: "", title: "กิจกรรมใหม่", text: "" }); }); })); wrap.appendChild(a2);
+    host.appendChild(wrap);
+  }
   function guideEditor(host) {
     var g = getGuide(), wrap = mk("div");
     wrap.appendChild(mk("div", "sub-h", "หลักเกณฑ์ภาพและพรอมต์ AI (หน้าสมัคร)"));
@@ -785,6 +833,7 @@
     u1.appendChild(uploadBtn("+ เพิ่มรูปหน้าแรก", true, 2400, function (ids) { return edit(function (n) { n.hero = (n.hero || []).concat(ids.map(function (id) { return { asset: id }; })); }); }));
     h1.appendChild(u1); host.appendChild(h1);
 
+    infoEditor(host);
     guideEditor(host);
   }
 
