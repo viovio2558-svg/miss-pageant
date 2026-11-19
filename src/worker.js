@@ -104,8 +104,13 @@ async function getRegions(env) {
   const r = await kvGet(env, "regions", null);
   return Array.isArray(r) && r.length ? r : DEFAULT_REGIONS;
 }
+function cleanTheme(t) {
+  const hex = (v) => (typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : "");
+  t = t || {};
+  return { bg: hex(t.bg), accent: hex(t.accent), gold: hex(t.gold) };
+}
 function cleanSettings(s) {
-  return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME };
+  return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME, theme: cleanTheme(s.theme) };
 }
 function schedule(s, t) {
   if (s.open === false) return false;
@@ -379,6 +384,7 @@ async function adminSettings(req, env) {
     closesAt: num(b.closesAt),
     note: String(b.note || "").slice(0, 500),
     eventName: String(b.eventName || "").trim().replace(/\s+/g, " ").slice(0, 40) || DEFAULT_EVENT_NAME,
+    theme: cleanTheme(b.theme),
   };
   if (s.opensAt && s.closesAt && s.closesAt <= s.opensAt) return fail(400, "bad_range", "เวลาปิดต้องหลังเวลาเปิด");
   await kvSet(env, "settings", s).run();
