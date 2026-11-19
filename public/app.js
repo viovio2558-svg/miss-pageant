@@ -873,9 +873,9 @@
     var f = S.settings.font || "Nunito Sans Expanded"; if (f === S.fontSig) return; S.fontSig = f;
     var wide = f === "Nunito Sans Expanded", name = wide ? "Nunito Sans" : f;
     var fam = '"' + name + '", "Prompt", system-ui, sans-serif';
-    ["brandName", "heroName"].forEach(function (id) { $(id).style.fontFamily = fam; $(id).style.fontStretch = wide ? "125%" : "normal"; });
+    ["brandName", "heroName"].forEach(function (id) { $(id).style.fontFamily = fam; $(id).style.fontStretch = wide ? "125%" : "normal"; $(id).style.fontWeight = wide ? "300" : ""; $(id).style.letterSpacing = wide ? "-0.102em" : ""; });
     if (!document.getElementById("fontLink")) { var l = document.createElement("link"); l.id = "fontLink"; l.rel = "stylesheet"; document.head.appendChild(l); }
-    var l2 = document.getElementById("fontLink"); if (l2) l2.href = "https://fonts.googleapis.com/css2?family=" + (wide ? "Nunito+Sans:wdth,wght@75..125,400..900" : encodeURIComponent(name).replace(/%20/g, "+") + ":wght@400;700") + "&display=swap";
+    var l2 = document.getElementById("fontLink"); if (l2) l2.href = "https://fonts.googleapis.com/css2?family=" + (wide ? "Nunito+Sans:wdth,wght@75..125,200..1000" : encodeURIComponent(name).replace(/%20/g, "+") + ":wght@400;700") + "&display=swap";
   }
   function applyBrand() {
     var name = String(S.settings.eventName || "").trim() || "Miss India";
