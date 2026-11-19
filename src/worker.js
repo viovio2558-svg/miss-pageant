@@ -435,8 +435,8 @@ async function adminContent(req, env) {
   if (b.info && typeof b.info === "object") {
     const s = (v, n) => String(v || "").trim().slice(0, n);
     out.info = {
-      format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 12).map((r) => ({ label: s(r && r.label, 80), text: s(r && r.text, 800) })),
-      schedule: (Array.isArray(b.info.schedule) ? b.info.schedule : []).slice(0, 20).map((r) => ({ when: s(r && r.when, 60), title: s(r && r.title, 100), text: s(r && r.text, 400) })),
+      format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 12).map((r) => { const podium = r && r.kind === "podium"; return { label: s(r && r.label, 80), kind: podium ? "podium" : "row", count: Math.max(0, Math.min(podium ? 8 : 40, parseInt(r && r.count, 10) || 0)), extra: podium ? "" : s(r && r.extra, 30) }; }),
+      schedule: (Array.isArray(b.info.schedule) ? b.info.schedule : []).slice(0, 20).map((r) => ({ when: s(r && r.when, 60), title: s(r && r.title, 100), text: s(r && r.text, 400), url: cleanUrl(r && r.url), linkText: s(r && r.linkText, 30) })),
     };
   }
   if (Array.isArray(b.payments)) {
