@@ -338,7 +338,8 @@
       ic.appendChild(row);
     } else {
       var cnt = Math.max(0, Math.min(60, x.count | 0)), g = mk("div", "stg-grid");
-      if (x.perRow > 0) { g.style.gridTemplateColumns = "repeat(" + Math.min(30, x.perRow) + ", var(--iw))"; g.style.width = "auto"; ic.style.flex = "0 0 auto"; }
+      var per = x.perRow > 0 ? Math.min(30, x.perRow) : (window.innerWidth >= 700 ? Math.min(cnt, 12) : 0);
+      if (per > 0) { g.style.gridTemplateColumns = "repeat(" + per + ", var(--iw))"; g.style.width = "auto"; ic.style.flex = "0 0 auto"; }
       for (var i = 0; i < cnt; i++) g.appendChild(figEl());
       if (cnt) ic.appendChild(g);
     }
@@ -357,7 +358,7 @@
   function renderInfo() {
     var info = S.content.info || {}, f = (info.format || []).filter(function (x) { return x.label || x.count || x.pill; }), s = (info.schedule || []).filter(function (x) { return x.when || x.title || x.text; });
     $("infoSec").hidden = !f.length && !s.length; $("fmtSec").hidden = !f.length; $("schSec").hidden = !s.length;
-    var fl = $("fmtList"); fl.textContent = ""; f.forEach(function (x, i) { renderStage(fl, x, i === f.length - 1); });
+    var fl = $("fmtList"); fl.textContent = ""; var fin = mk("div", "fmt-inner"); fl.appendChild(fin); f.forEach(function (x, i) { renderStage(fin, x, i === f.length - 1); });
     var tp = $("fmtTop"), ft = String(info.formatTitle || "").trim(); tp.hidden = !ft; tp.textContent = ""; if (ft) { var pi = ft.indexOf("+"); if (pi >= 0) { tp.appendChild(document.createTextNode(ft.slice(0, pi).trim())); tp.appendChild(starEl()); tp.appendChild(mk("b", null, ft.slice(pi + 1).trim())); } else tp.appendChild(document.createTextNode(ft)); }
     var sl = $("schList"); sl.textContent = ""; s.forEach(function (x) { var li = mk("li"); if (x.when) li.appendChild(mk("div", "w", x.when)); if (x.title) li.appendChild(mk("div", "t", x.title)); if (x.text) li.appendChild(mk("div", "d", x.text)); if (x.url && /^https?:\/\//i.test(x.url)) { var lk = mk("a", "lk", x.linkText || "เปิดลิงก์"); lk.href = x.url; lk.target = "_blank"; lk.rel = "noopener noreferrer"; li.appendChild(lk); } sl.appendChild(li); });
   }
