@@ -310,11 +310,37 @@
     m.appendChild(mk("div", "c", c.country)); m.appendChild(mk("div", "nm", c.fullName)); m.appendChild(mk("div", "u", c.username));
     m.appendChild(chip("approved")); li.appendChild(m); return li;
   }
+  var FIG = (function () {
+    return '<svg class="fig" viewBox="0 0 40 100" fill="currentColor" stroke="currentColor" aria-hidden="true"><g fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 32 L7 20 L15 8"/><path d="M25 32 L33 20 L25 8"/></g><circle cx="20" cy="17" r="5" stroke="none"/><rect x="18.2" y="21" width="3.6" height="9" stroke="none"/><path stroke="none" d="M13.5 31 C14 36 17 40 15.5 46 C14 54 17 66 11 80 C9 87 3 91 2 94 L38 94 C37 91 31 87 29 80 C23 66 26 54 24.5 46 C23 40 26 36 26.5 31 Z"/><ellipse cx="20" cy="95.5" rx="18" ry="3" fill="none" stroke-width="1.6"/></svg>';
+  })();
+  function figEl(scale) {
+    var s = document.createElement("span"); s.style.display = "inline-flex"; s.innerHTML = FIG;
+    if (scale && scale !== 1) s.firstChild.style.height = "calc(" + scale + " * clamp(46px, 11vw, 74px))";
+    return s;
+  }
+  function ordinal(n) { var s = ["TH", "ST", "ND", "RD"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  function renderStage(host, x) {
+    var h = mk("h3", "stg-h"); h.appendChild(mk("span", null, x.label || "")); host.appendChild(h);
+    if (x.kind === "podium") {
+      var n = Math.max(0, Math.min(8, x.count | 0)), arr = [{ k: 0 }];
+      for (var k = 1; k <= n; k++) { if (k % 2) arr.unshift({ k: k }); else arr.push({ k: k }); }
+      var row = mk("div", "stg-row podium");
+      arr.forEach(function (o) {
+        var d = mk("div", o.k === 0 ? "pd win" : "pd"); d.appendChild(figEl(o.k === 0 ? 1.25 : Math.max(0.5, 1 - 0.14 * Math.ceil(o.k / 2))));
+        d.appendChild(mk("small", null, o.k === 0 ? "WINNER" : ordinal(o.k) + " RUNNER UP")); row.appendChild(d);
+      });
+      host.appendChild(row); return;
+    }
+    var cnt = Math.max(0, Math.min(40, x.count | 0)); if (!cnt && !x.extra) return;
+    var r = mk("div", "stg-row"); for (var i = 0; i < cnt; i++) r.appendChild(figEl());
+    if (x.extra) { r.appendChild(mk("span", "stg-plus", "+")); var e = mk("span", "stg-xl"); e.appendChild(figEl()); e.appendChild(mk("small", null, x.extra)); r.appendChild(e); }
+    host.appendChild(r);
+  }
   function renderInfo() {
-    var info = S.content.info || {}, f = (info.format || []).filter(function (x) { return x.label || x.text; }), s = (info.schedule || []).filter(function (x) { return x.when || x.title || x.text; });
+    var info = S.content.info || {}, f = (info.format || []).filter(function (x) { return x.label || x.count; }), s = (info.schedule || []).filter(function (x) { return x.when || x.title || x.text; });
     $("infoSec").hidden = !f.length && !s.length; $("fmtSec").hidden = !f.length; $("schSec").hidden = !s.length;
-    var fl = $("fmtList"); fl.textContent = ""; f.forEach(function (x) { var c = mk("div", "fmt-card"); if (x.label) c.appendChild(mk("b", null, x.label)); if (x.text) c.appendChild(mk("p", null, x.text)); fl.appendChild(c); });
-    var sl = $("schList"); sl.textContent = ""; s.forEach(function (x) { var li = mk("li"); if (x.when) li.appendChild(mk("div", "w", x.when)); if (x.title) li.appendChild(mk("div", "t", x.title)); if (x.text) li.appendChild(mk("div", "d", x.text)); sl.appendChild(li); });
+    var fl = $("fmtList"); fl.textContent = ""; f.forEach(function (x) { renderStage(fl, x); });
+    var sl = $("schList"); sl.textContent = ""; s.forEach(function (x) { var li = mk("li"); if (x.when) li.appendChild(mk("div", "w", x.when)); if (x.title) li.appendChild(mk("div", "t", x.title)); if (x.text) li.appendChild(mk("div", "d", x.text)); if (x.url && /^https?:\/\//i.test(x.url)) { var lk = mk("a", "lk", x.linkText || "เปิดลิงก์"); lk.href = x.url; lk.target = "_blank"; lk.rel = "noopener noreferrer"; li.appendChild(lk); } sl.appendChild(li); });
   }
   function renderHome() {
     renderHero(); renderInfo();
@@ -609,22 +635,32 @@
   function infoEditor(host) {
     var g = getInfo(), wrap = mk("div");
     wrap.appendChild(mk("div", "sub-h", "รูปแบบการแข่งขัน (หน้าแรก)"));
-    wrap.appendChild(mk("div", "hint", "แสดงเป็นการ์ดใต้ภาพสไลด์ แก้ข้อความแล้วคลิกออกจากช่อง ระบบบันทึกให้อัตโนมัติ ถ้าไม่มีรายการ หัวข้อนี้จะไม่แสดง"));
+    wrap.appendChild(mk("div", "hint", "แสดงเป็นรูปไอคอนใต้ภาพสไลด์ (รอบละหนึ่งแถว) ปรับจำนวนคนได้ แก้แล้วคลิกออกจากช่อง ระบบบันทึกให้อัตโนมัติ ถ้าไม่มีรายการ หัวข้อนี้จะไม่แสดง"));
     var list = mk("div"); list.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
     g.format.forEach(function (r, i) {
       var c = mk("div", "gcard");
-      var l = mk("input", "input"); l.value = r.label; l.placeholder = "หัวข้อ เช่น รอบคัดเลือก"; l.setAttribute("aria-label", "หัวข้อ");
-      var t = mk("textarea", "input"); t.value = r.text; t.placeholder = "รายละเอียด"; t.setAttribute("aria-label", "รายละเอียด");
+      var l = mk("input", "input"); l.value = r.label || ""; l.placeholder = "ชื่อรอบ เช่น Opening, Swimwear, Crowning Moment"; l.setAttribute("aria-label", "ชื่อรอบ");
       l.addEventListener("change", function () { saveInfo(function (x) { x.format[i].label = l.value.trim(); }); });
-      t.addEventListener("change", function () { saveInfo(function (x) { x.format[i].text = t.value.trim(); }); });
-      c.appendChild(l); c.appendChild(t);
+      var k = mk("select", "input"); k.setAttribute("aria-label", "รูปแบบ");
+      [["row", "แถวผู้เข้ารอบ (ไอคอนตามจำนวนคน)"], ["podium", "ช่วงสวมมง (ผู้ชนะ + รองอันดับ)"]].forEach(function (o) { var op = mk("option", null, o[1]); op.value = o[0]; if ((r.kind || "row") === o[0]) op.selected = true; k.appendChild(op); });
+      k.addEventListener("change", function () { saveInfo(function (x) { x.format[i].kind = k.value; }); });
+      var n = mk("input", "input"); n.type = "number"; n.min = "0"; n.max = "40"; n.inputMode = "numeric"; n.value = r.count != null ? r.count : 0; n.setAttribute("aria-label", "จำนวนคน");
+      n.addEventListener("change", function () { saveInfo(function (x) { x.format[i].count = parseInt(n.value, 10) || 0; }); });
+      var nl = mk("label", null, (r.kind === "podium" ? "จำนวนรองอันดับ (ไม่รวมผู้ชนะ)" : "จำนวนคนที่ผ่านเข้ารอบนี้")); nl.style.fontSize = "13px"; nl.style.color = "var(--muted)";
+      c.appendChild(l); c.appendChild(k); c.appendChild(nl); c.appendChild(n);
+      if (r.kind !== "podium") {
+        var ex = mk("input", "input"); ex.value = r.extra || ""; ex.placeholder = "เพิ่มอีก 1 ไอคอน เช่น POPULAR VOTE (เว้นว่างถ้าไม่มี)"; ex.setAttribute("aria-label", "ไอคอนพิเศษ");
+        ex.addEventListener("change", function () { saveInfo(function (x) { x.format[i].extra = ex.value.trim(); }); }); c.appendChild(ex);
+      }
       var row = mk("div", "row");
       row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var a = x.format[i - 1]; x.format[i - 1] = x.format[i]; x.format[i] = a; } }); }, i === 0));
       row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.format.splice(i, 1); }); }));
       c.appendChild(row); list.appendChild(c);
     });
     wrap.appendChild(list);
-    var a1 = mk("div", "row"); a1.style.marginTop = "10px"; a1.appendChild(moveBtn("+ เพิ่มรูปแบบการแข่งขัน", function () { saveInfo(function (x) { x.format.push({ label: "หัวข้อใหม่", text: "" }); }); })); wrap.appendChild(a1);
+    var a1 = mk("div", "row"); a1.style.marginTop = "10px"; a1.appendChild(moveBtn("+ เพิ่มรูปแบบการแข่งขัน", function () { saveInfo(function (x) { x.format.push({ label: "ชื่อรอบ", kind: "row", count: 5, extra: "" }); }); }));
+    a1.appendChild(moveBtn("ใส่ตัวอย่างตามภาพ", function () { saveInfo(function (x) { x.format = [{ label: "Opening", kind: "row", count: 13, extra: "" }, { label: "Swimwear", kind: "row", count: 7, extra: "Popular Vote" }, { label: "Gown", kind: "row", count: 4, extra: "Popular Vote" }, { label: "Crowning Moment", kind: "podium", count: 4, extra: "" }]; }); }));
+    wrap.appendChild(a1);
     wrap.appendChild(mk("div", "sub-h", "กำหนดการ (หน้าแรก)")).style.marginTop = "18px";
     wrap.appendChild(mk("div", "hint", "แสดงเป็นไทม์ไลน์ เช่น วันที่/ช่วงเวลา + กิจกรรม"));
     var sl = mk("div"); sl.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
@@ -636,7 +672,11 @@
       w.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].when = w.value.trim(); }); });
       l.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].title = l.value.trim(); }); });
       t.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].text = t.value.trim(); }); });
-      c.appendChild(w); c.appendChild(l); c.appendChild(t);
+      var u = mk("input", "input"); u.type = "url"; u.value = r.url || ""; u.placeholder = "ลิงก์ (ไม่บังคับ) เช่น https://..."; u.setAttribute("aria-label", "ลิงก์");
+      var ut = mk("input", "input"); ut.value = r.linkText || ""; ut.placeholder = "ข้อความปุ่มลิงก์ เช่น สมัครที่นี่"; ut.setAttribute("aria-label", "ข้อความลิงก์");
+      u.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].url = u.value.trim(); }); });
+      ut.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].linkText = ut.value.trim(); }); });
+      c.appendChild(w); c.appendChild(l); c.appendChild(t); c.appendChild(u); c.appendChild(ut);
       var row = mk("div", "row");
       row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var a = x.schedule[i - 1]; x.schedule[i - 1] = x.schedule[i]; x.schedule[i] = a; } }); }, i === 0));
       row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.schedule.splice(i, 1); }); }));
