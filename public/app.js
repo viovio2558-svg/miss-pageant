@@ -63,7 +63,7 @@
 
   var S = {
     offset: 0, settings: {}, content: {}, taken: {}, approved: [], me: [], admin: false, adminList: [],
-    regions: [], regSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
+    regions: [], regSig: "", themeSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
     rTab: "all", rQ: "", aTab: "all", aQ: "", mineSig: "", edSig: "", heroSig: "", settingsFilled: false,
     heroIdx: 0, heroTimer: null, polling: false, pollTimer: null, queue: Promise.resolve(), blobs: {}
   };
@@ -676,7 +676,7 @@
     if (!S.settingsFilled && S.loaded) {
       S.settingsFilled = true;
       $("setFee").value = S.settings.fee != null ? S.settings.fee : ""; $("setOpen").checked = S.settings.open !== false;
-      $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || "";
+      $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || ""; var th = S.settings.theme || {}; $("thBg").value = th.bg || THEME_DEF.bg; $("thAccent").value = th.accent || THEME_DEF.accent; $("thGold").value = th.gold || THEME_DEF.gold;
     }
   }
   function adminRow(c) {
@@ -828,21 +828,31 @@
     $("setMsg").textContent = "";
     if (o && c && c <= o) { $("setMsg").textContent = "เวลาปิดต้องหลังเวลาเปิด"; return; }
     btn.disabled = true;
-    var r = await adminCall("/api/admin/settings", { fee: fee === "" ? null : Number(fee), open: $("setOpen").checked, opensAt: o, closesAt: c, note: $("setNote").value.trim(), eventName: $("setEvent").value.trim() });
+    var r = await adminCall("/api/admin/settings", { fee: fee === "" ? null : Number(fee), open: $("setOpen").checked, opensAt: o, closesAt: c, note: $("setNote").value.trim(), eventName: $("setEvent").value.trim(), theme: { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value } });
     $("setMsg").textContent = r.ok ? "บันทึกแล้ว" : "บันทึกไม่สำเร็จ"; btn.disabled = false;
     if (r.ok) await poll();
   }
 
   /* ---------- ชื่อเวที (แก้ได้ทุกปี) ---------- */
-  function fillBrand(el, first, rest) {
-    el.textContent = ""; el.appendChild(document.createTextNode(first));
-    if (rest) { el.appendChild(document.createTextNode(" ")); el.appendChild(mk("i", null, "\u2726")); el.appendChild(document.createTextNode(" " + rest)); }
+  /* ---------- สีเว็บ (แก้ได้ที่แอดมิน) ---------- */
+  var THEME_DEF = { bg: "#090d1e", accent: "#8ea4ff", gold: "#ecd9a0" };
+  function hx(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function mixc(a, b, t) { var x = hx(a), y = hx(b); return "#" + [0, 1, 2].map(function (i) { return ("0" + Math.round(x[i] + (y[i] - x[i]) * t).toString(16)).slice(-2); }).join(""); }
+  function lum(h) { var c = hx(h); return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255; }
+  function applyTheme() {
+    var t = S.settings.theme || {}, bg = t.bg || THEME_DEF.bg, ac = t.accent || THEME_DEF.accent, go = t.gold || THEME_DEF.gold;
+    var sig = bg + ac + go; if (sig === S.themeSig) return; S.themeSig = sig;
+    var light = lum(bg) > 0.55, fg = light ? "#000000" : "#ffffff", r = document.documentElement.style;
+    r.setProperty("--bg", bg); r.setProperty("--panel", mixc(bg, fg, 0.06)); r.setProperty("--panel-2", mixc(bg, fg, 0.12)); r.setProperty("--line", mixc(bg, fg, 0.22));
+    r.setProperty("--ink", light ? "#14172b" : "#eef1fb"); r.setProperty("--muted", mixc(bg, light ? "#000000" : "#ffffff", 0.6));
+    r.setProperty("--accent", ac); r.setProperty("--accent-ink", lum(ac) > 0.55 ? "#0a0f2c" : "#ffffff"); r.setProperty("--gold", go);
+    r.colorScheme = light ? "light" : "dark";
   }
+  function fillBrand(el, first, rest) { el.textContent = first + (rest ? " " + rest : ""); }
   function applyBrand() {
     var name = String(S.settings.eventName || "").trim() || "Miss India";
     if (name === S.brandSig) return; S.brandSig = name;
-    var parts = name.split(" "), first = parts.shift(), rest = parts.join(" ");
-    fillBrand($("brandName"), first, rest); fillBrand($("heroName"), first, rest);
+    $("brandName").textContent = name; $("heroName").textContent = name;
     document.title = name; $("hero").setAttribute("aria-label", name);
     $("rosterEyebrow").textContent = "ทำเนียบ · " + name; $("regTitle").textContent = "Register Now for " + name;
     $("adminTitle").textContent = "แอดมิน " + name; $("foot").textContent = "ติดตามข่าวสารจากทีมงาน " + name;
@@ -873,7 +883,7 @@
     if (S.loaded) poll();
   }
   function render() {
-    applyBrand();
+    applyBrand(); applyTheme();
     if (S.view === "home") renderHome(); else if (S.view === "roster") renderRoster(); else if (S.view === "register") renderRegister(); else if (S.view === "admin") renderAdmin();
     renderDock();
   }
@@ -894,6 +904,8 @@
   $("zipPaid").addEventListener("click", function (e) { zipPhotos(true, e.currentTarget); });
   $("setSave").addEventListener("click", saveSettings);
   $("regSave").addEventListener("click", saveRegions);
+  $("thReset").addEventListener("click", function () { $("thBg").value = THEME_DEF.bg; $("thAccent").value = THEME_DEF.accent; $("thGold").value = THEME_DEF.gold; });
+  ["thBg", "thAccent", "thGold"].forEach(function (id) { $(id).addEventListener("input", function () { S.settings.theme = { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value }; applyTheme(); }); });
   $("gateBtn").addEventListener("click", gateSubmit);
   $("gateCode").addEventListener("keydown", function (e) { if (e.key === "Enter") gateSubmit(); });
   $("logoutBtn").addEventListener("click", logout);
