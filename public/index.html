@@ -289,28 +289,31 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .dock-msg { flex: 1 1 100%; background: #2a2610; border: 1px solid #6b5a2c; color: var(--gold); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
 .infosec { display: grid; gap: 22px; margin-top: 18px; }
 .infosec h2 { margin: 0 0 10px; font-family: var(--font-display); font-size: 20px; }
-.fmt-frame { --fh: clamp(30px, 8.4vw, 46px); background: #0b0b10; color: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.fmt-frame { --fh: clamp(30px, 8.4vw, 46px); --iw: calc(var(--fh) * .443 + 5px); --lw: clamp(104px, 31%, 190px); font-family: "Nunito Sans", "Nunito", var(--font-body), system-ui, sans-serif; background: #0b0b10; color: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .fmt-top { text-align: center; padding: 10px 12px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; background: linear-gradient(90deg, transparent, #2a2230 30%, #2a2230 70%, transparent); border-bottom: 1px solid #ffffff1f; }
 .fmt-top b { color: #ffc2e2; font-weight: 600; }
 .fmt-top .starsvg { color: #fff; margin: 0 .5em; height: 1.05em; width: 1.05em; }
 .fmt-body { padding: 10px 14px 14px; }
-.stg { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-items: center; padding: 10px 0 6px; }
-.stg-l { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.stg { display: grid; grid-template-columns: var(--lw) minmax(0, 1fr); gap: 6px 12px; align-items: center; padding: 12px 0 8px; }
+.stg-l { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .stg-pill { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid #fff; border-radius: 14px; padding: 3px 9px; max-width: 118px; line-height: 1.2; }
-.stg-big { font-family: var(--font-display); font-weight: 700; font-size: clamp(22px, 7vw, 42px); line-height: 1; white-space: nowrap; color: var(--accent); text-transform: uppercase; letter-spacing: -.01em; }
+.stg-big { font-family: inherit; font-weight: 700; font-size: clamp(20px, 6vw, 40px); line-height: 1; white-space: nowrap; color: var(--accent); text-transform: uppercase; letter-spacing: -.01em; }
 .stg-mid { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; min-width: 0; }
-.stg-ic { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.stg-ic { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; flex: 1 1 100%; min-width: 0; }
+.stg-grid { display: grid; grid-template-columns: repeat(auto-fill, var(--iw)); justify-content: start; align-items: end; row-gap: 3px; width: 100%; }
+.stg-grid .fig { justify-self: center; }
 .stg-line { display: flex; gap: 2px; align-items: flex-end; }
 .stg-sub { font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: #cfcfd6; }
 .stg-x { display: flex; align-items: flex-start; gap: 8px; }
+.stg-mid > .stg-x { flex: 0 0 auto; }
 .stg-x .pl { font-size: 24px; font-weight: 300; align-self: center; opacity: .85; }
 .stg-xi { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; }
 .stg-xi small { font-size: 8px; letter-spacing: .04em; text-transform: uppercase; max-width: 64px; line-height: 1.15; color: #e5e5ea; }
 .stg-xt { font-size: 9px; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: 4px; text-align: center; }
 .stg-sep { border-top: 1px solid #ffffff3a; padding-top: 5px; text-align: center; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: #e8e8ee; min-height: 6px; }
-.podium { align-items: flex-end; gap: 6px; }
+.podium { align-items: flex-end; gap: 4px; }
 .podium .pd { display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: flex-end; }
-.podium .pd small { font-size: 8px; letter-spacing: .04em; text-transform: uppercase; color: #cfcfd6; max-width: 62px; line-height: 1.1; margin-top: 2px; }
+.podium .pd small { font-size: 8px; letter-spacing: .04em; text-transform: uppercase; color: #cfcfd6; width: 62px; line-height: 1.1; margin-top: 2px; }
 .podium .pd.win small { font-size: 10px; color: #fff; }
 .tl .lk { display: inline-block; margin-top: 4px; font-size: 13px; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .tl { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 2px solid var(--line); display: grid; gap: 14px; }
@@ -340,6 +343,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 @media (prefers-reduced-motion: reduce) { .hero-stage .slide { transition: none; } }
 </style>
 
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wdth,wght@75..125,200..1000&display=swap">
 </head>
 <body>
 <div class="wrap">
