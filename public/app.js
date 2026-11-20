@@ -703,7 +703,7 @@
     var sl = mk("div"); sl.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
     g.schedule.forEach(function (r, i) {
       var c = mk("div", "gcard");
-      var w = mk("input", "input"); w.value = r.when; w.placeholder = "วัน/เวลา เช่น 5 ธ.ค. 20:00"; w.setAttribute("aria-label", "วันและเวลา");
+      var w = mk("input", "input"); w.value = r.when; w.placeholder = "วันที่ เช่น 5 ธ.ค. (วันเดียวกันจะรวมเป็นกลุ่มเดียว)"; w.setAttribute("aria-label", "วันและเวลา");
       var l = mk("input", "input"); l.value = r.title; l.placeholder = "กิจกรรม เช่น ปิดรับสมัคร"; l.setAttribute("aria-label", "กิจกรรม");
       var t = mk("textarea", "input"); t.value = r.text; t.placeholder = "รายละเอียดเพิ่มเติม (ไม่บังคับ)"; t.setAttribute("aria-label", "รายละเอียด");
       w.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].when = w.value.trim(); }); });
@@ -713,7 +713,9 @@
       var ut = mk("input", "input"); ut.value = r.linkText || ""; ut.placeholder = "ข้อความปุ่มลิงก์ เช่น สมัครที่นี่"; ut.setAttribute("aria-label", "ข้อความลิงก์");
       u.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].url = u.value.trim(); }); });
       ut.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].linkText = ut.value.trim(); }); });
-      c.appendChild(w); c.appendChild(l); c.appendChild(t); c.appendChild(u); c.appendChild(ut);
+      var tmI = mk("input", "input"); tmI.value = r.time || ""; tmI.placeholder = "เวลา เช่น 20:00 (ไม่บังคับ)"; tmI.setAttribute("aria-label", "เวลา");
+      tmI.addEventListener("change", function () { saveInfo(function (x) { x.schedule[i].time = tmI.value.trim(); }); });
+      c.appendChild(w); c.appendChild(tmI); c.appendChild(l); c.appendChild(t); c.appendChild(u); c.appendChild(ut);
       var row = mk("div", "row");
       row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var a = x.schedule[i - 1]; x.schedule[i - 1] = x.schedule[i]; x.schedule[i] = a; } }); }, i === 0));
       row.appendChild(moveBtn("+ กิจกรรมในวันเดียวกัน", function () { saveInfo(function (x) { x.schedule.splice(i + 1, 0, { when: x.schedule[i].when, time: "", title: "กิจกรรมใหม่", text: "" }); }); }));
