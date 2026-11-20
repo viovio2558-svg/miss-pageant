@@ -282,6 +282,9 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .ecard .im img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ecard .input { padding: 7px 9px; font-size: 14px; }
 .ecard .row { gap: 6px; }
+.cx-hide { display: none !important; }
+.cx-head { cursor: pointer; user-select: none; }
+.cx-ar { display: inline-block; width: 1.1em; opacity: .7; font-size: .8em; }
 .sub-h { font-family: var(--font-display); font-weight: 700; font-size: 16px; margin: 4px 0 0; }
 
 .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: #0d1230ee; border-top: 1px solid var(--line); backdrop-filter: blur(8px); padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
@@ -312,6 +315,8 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .stg-xi { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; }
 .stg-xi small { font-size: 8px; letter-spacing: .04em; text-transform: uppercase; max-width: 64px; line-height: 1.15; color: #e5e5ea; }
 .stg-xt { font-size: 9px; letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: 4px; text-align: center; }
+.stg-sep.has { border-top: 0; padding-top: 0; display: flex; align-items: center; gap: 12px; }
+.stg-sep.has::before, .stg-sep.has::after { content: ""; flex: 1 1 0; height: 1px; background: #ffffff3a; }
 .stg-sep { border-top: 1px solid #ffffff3a; padding-top: 5px; text-align: center; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: #e8e8ee; min-height: 6px; }
 .podium { align-items: flex-end; gap: 4px; }
 .podium .pd { display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: flex-end; }
@@ -322,6 +327,9 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .tl li { position: relative; padding-left: 12px; }
 .tl li::before { content: ""; position: absolute; left: -25px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--bg); }
 .tl .w { color: var(--gold); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.tl .ev { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; }
+.tl .tm { flex: none; min-width: 3.6em; color: var(--accent); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
+.tl .evb { min-width: 0; }
 .tl .t { font-weight: 700; }
 .tl .d { color: var(--muted); font-size: 14px; white-space: pre-line; }
 .gcard { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -377,7 +385,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 
     <div class="infosec" id="infoSec" hidden>
       <section id="fmtSec" hidden><div class="fmt-frame"><div class="fmt-top" id="fmtTop"></div><div class="fmt-body" id="fmtList"></div></div></section>
-      <section id="schSec" hidden><h2>กำหนดการ</h2><ul class="tl" id="schList"></ul></section>
+      <section id="schSec" hidden><h2>SCHEDULE</h2><ul class="tl" id="schList"></ul></section>
     </div>
 
     <section>

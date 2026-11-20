@@ -353,14 +353,26 @@
       box.appendChild(xr); xw.appendChild(box); mid.appendChild(xw);
     }
     st.appendChild(mid); host.appendChild(st);
-    if (x.note || !last) host.appendChild(mk("div", "stg-sep", x.note || ""));
+    if (x.note || !last) host.appendChild(mk("div", x.note ? "stg-sep has" : "stg-sep", x.note || ""));
   }
   function renderInfo() {
     var info = S.content.info || {}, f = (info.format || []).filter(function (x) { return x.label || x.count || x.pill; }), s = (info.schedule || []).filter(function (x) { return x.when || x.title || x.text; });
     $("infoSec").hidden = !f.length && !s.length; $("fmtSec").hidden = !f.length; $("schSec").hidden = !s.length;
     var fl = $("fmtList"); fl.textContent = ""; var fin = mk("div", "fmt-inner"); fl.appendChild(fin); f.forEach(function (x, i) { renderStage(fin, x, i === f.length - 1); });
     var tp = $("fmtTop"), ft = String(info.formatTitle || "").trim(); tp.hidden = !ft; tp.textContent = ""; if (ft) { var pi = ft.indexOf("+"); if (pi >= 0) { tp.appendChild(document.createTextNode(ft.slice(0, pi).trim())); tp.appendChild(starEl()); tp.appendChild(mk("b", null, ft.slice(pi + 1).trim())); } else tp.appendChild(document.createTextNode(ft)); }
-    var sl = $("schList"); sl.textContent = ""; s.forEach(function (x) { var li = mk("li"); if (x.when) li.appendChild(mk("div", "w", x.when)); if (x.title) li.appendChild(mk("div", "t", x.title)); if (x.text) li.appendChild(mk("div", "d", x.text)); if (x.url && /^https?:\/\//i.test(x.url)) { var lk = mk("a", "lk", x.linkText || "เปิดลิงก์"); lk.href = x.url; lk.target = "_blank"; lk.rel = "noopener noreferrer"; li.appendChild(lk); } sl.appendChild(li); });
+    var sl = $("schList"); sl.textContent = "";
+    var groups = [];
+    s.forEach(function (x) { var l = groups[groups.length - 1]; if (l && x.when && l.when === x.when) l.items.push(x); else groups.push({ when: x.when, items: [x] }); });
+    groups.forEach(function (gp) {
+      var li = mk("li"); if (gp.when) li.appendChild(mk("div", "w", gp.when));
+      gp.items.forEach(function (x) {
+        var ev = mk("div", "ev"); if (x.time) ev.appendChild(mk("span", "tm", x.time));
+        var bd = mk("div", "evb"); if (x.title) bd.appendChild(mk("div", "t", x.title)); if (x.text) bd.appendChild(mk("div", "d", x.text));
+        if (x.url && /^https?:\/\//i.test(x.url)) { var lk = mk("a", "lk", x.linkText || "เปิดลิงก์"); lk.href = x.url; lk.target = "_blank"; lk.rel = "noopener noreferrer"; bd.appendChild(lk); }
+        ev.appendChild(bd); li.appendChild(ev);
+      });
+      sl.appendChild(li);
+    });
   }
   function renderHome() {
     renderHero(); renderInfo();
@@ -686,7 +698,7 @@
     var a1 = mk("div", "row"); a1.style.marginTop = "10px"; a1.appendChild(moveBtn("+ เพิ่มรูปแบบการแข่งขัน", function () { saveInfo(function (x) { x.format.push({ label: "TOP 5", kind: "row", count: 5, perRow: 0, extras: [] }); }); }));
     a1.appendChild(moveBtn("ใส่ตัวอย่างตามภาพ", function () { saveInfo(function (x) { x.formatTitle = x.formatTitle || "MISS INDIA 2026 + FORMAT"; x.format = [{ label: "TOP 20", pill: "FROM 77 DELEGATES", kind: "row", count: 20, perRow: 10, sub: "TOP 18 FINALISTS FROM PRIMARY SCORE", extraTitle: "FAST TRACK WINNERS", extras: ["POPULAR VOTE", "BEST SELLER"], note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 10", kind: "row", count: 10, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 5", kind: "row", count: 5, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 3", kind: "row", count: 3, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "WINNER", kind: "podium", count: 2 }]; }); }));
     wrap.appendChild(a1);
-    wrap.appendChild(mk("div", "sub-h", "กำหนดการ (หน้าแรก)")).style.marginTop = "18px";
+    wrap.appendChild(mk("div", "sub-h", "SCHEDULE (หน้าแรก)")).style.marginTop = "18px";
     wrap.appendChild(mk("div", "hint", "แสดงเป็นไทม์ไลน์ เช่น วันที่/ช่วงเวลา + กิจกรรม"));
     var sl = mk("div"); sl.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
     g.schedule.forEach(function (r, i) {
@@ -704,6 +716,7 @@
       c.appendChild(w); c.appendChild(l); c.appendChild(t); c.appendChild(u); c.appendChild(ut);
       var row = mk("div", "row");
       row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var a = x.schedule[i - 1]; x.schedule[i - 1] = x.schedule[i]; x.schedule[i] = a; } }); }, i === 0));
+      row.appendChild(moveBtn("+ กิจกรรมในวันเดียวกัน", function () { saveInfo(function (x) { x.schedule.splice(i + 1, 0, { when: x.schedule[i].when, time: "", title: "กิจกรรมใหม่", text: "" }); }); }));
       row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.schedule.splice(i, 1); }); }));
       c.appendChild(row); sl.appendChild(c);
     });
@@ -766,6 +779,26 @@
     $("gateCode").value = ""; await poll();
   }
   async function logout() { await api("/api/admin/logout", { method: "POST" }); S.admin = false; S.adminList = []; $("adminLink").hidden = true; render(); }
+  function cxGet(k) { try { return localStorage.getItem("cx:" + k) === "1"; } catch (e) { return false; } }
+  function cxSet(k, v) { try { localStorage.setItem("cx:" + k, v ? "1" : "0"); } catch (e) {} }
+  function collapsible(head, isStop) {
+    if (head.getAttribute("data-cx")) return; head.setAttribute("data-cx", "1");
+    var key = (head.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60), arrow = mk("span", "cx-ar", "▾");
+    head.insertBefore(arrow, head.firstChild); head.classList.add("cx-head"); head.setAttribute("role", "button"); head.tabIndex = 0;
+    function set(c) {
+      arrow.textContent = c ? "▸" : "▾"; head.setAttribute("aria-expanded", c ? "false" : "true");
+      for (var n = head.nextElementSibling; n && !isStop(n); n = n.nextElementSibling) n.classList.toggle("cx-hide", c);
+    }
+    function toggle() { var c = !head.classList.contains("cx-closed"); head.classList.toggle("cx-closed", c); cxSet(key, c); set(c); }
+    head.addEventListener("click", function (e) { if (e.target.closest("a,button,input,select")) return; toggle(); });
+    head.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+    if (cxGet(key)) { head.classList.add("cx-closed"); set(true); }
+  }
+  function setupCollapse() {
+    var body = $("adminBody"); if (!body) return;
+    body.querySelectorAll(":scope > section.sec > h2").forEach(function (h) { collapsible(h, function () { return false; }); });
+    body.querySelectorAll(".sub-h").forEach(function (h) { collapsible(h, function (n) { return n.classList.contains("sub-h"); }); });
+  }
   function renderAdmin() {
     $("adminGate").hidden = S.admin; $("adminBody").hidden = !S.admin; $("logoutBtn").hidden = !S.admin;
     if (!S.admin) return;
@@ -785,7 +818,7 @@
     });
     var host = $("aList"); host.textContent = ""; list.forEach(function (c) { host.appendChild(adminRow(c)); });
     $("aEmpty").hidden = list.length > 0;
-    renderEditor();
+    renderEditor(); setupCollapse();
     if (!S.settingsFilled && S.loaded) {
       S.settingsFilled = true;
       $("setOpen").checked = S.settings.open !== false;
