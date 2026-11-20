@@ -446,7 +446,7 @@ async function adminContent(req, env) {
           extras: (Array.isArray(r && r.extras) ? r.extras : []).slice(0, 6).map((x) => s(x, 30)).filter(Boolean),
         };
       }),
-      schedule: (Array.isArray(b.info.schedule) ? b.info.schedule : []).slice(0, 20).map((r) => ({ when: s(r && r.when, 60), title: s(r && r.title, 100), text: s(r && r.text, 400), url: cleanUrl(r && r.url), linkText: s(r && r.linkText, 30) })),
+      schedule: (Array.isArray(b.info.schedule) ? b.info.schedule : []).slice(0, 40).map((r) => ({ when: s(r && r.when, 60), time: s(r && r.time, 20), title: s(r && r.title, 100), text: s(r && r.text, 400), url: cleanUrl(r && r.url), linkText: s(r && r.linkText, 30) })),
     };
   }
   if (Array.isArray(b.payments)) {
