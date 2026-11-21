@@ -50,7 +50,7 @@ button, input, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.nav { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding-top: 16px; }
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding: 12px 0; position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--bg) 92%, transparent); clip-path: inset(0 -100vmax); }
 .brand { font-family: var(--font-display); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 14px; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .brand i { font-style: normal; color: var(--gold); }
 .brandbox { display: flex; flex-direction: column; gap: 2px; }
