@@ -112,7 +112,7 @@ function cleanTheme(t) {
 const DEF_FONT = "Nunito Sans Expanded";
 const FONTS = [DEF_FONT, "Prompt", "Montserrat", "Syncopate", "Unbounded", "Josefin Sans", "Playfair Display", "Cinzel", "Bebas Neue"];
 function cleanFont(v) { return FONTS.includes(v) ? v : DEF_FONT; }
-function cleanUrl(v) { v = String(v || "").trim().slice(0, 300); return /^https?:\/\/[^\s"<>]+$/i.test(v) ? v : ""; }
+function cleanUrl(v) { v = String(v || "").trim().slice(0, 300); if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v)) v = "https://" + v; return /^https?:\/\/[^\s"<>]+$/i.test(v) ? v : ""; }
 function cleanSettings(s) {
   return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME, theme: cleanTheme(s.theme), font: cleanFont(s.font), star: s.star !== false, presText: s.presText || "Miss Moohong", presUrl: cleanUrl(s.presUrl) };
 }
@@ -461,7 +461,7 @@ async function adminContent(req, env) {
   if (b.info && typeof b.info === "object") {
     const s = (v, n) => String(v || "").trim().slice(0, n);
     out.info = {
-      links: Array.isArray(b.info.links) ? b.info.links.slice(0, 10).map((r) => ({ label: s(r && r.label, 40), url: cleanUrl(r && r.url), live: !!(r && r.live) })).filter((r) => r.url) : undefined,
+      links: Array.isArray(b.info.links) ? b.info.links.slice(0, 10).map((r) => ({ label: s(r && r.label, 40), url: cleanUrl(r && r.url), live: !!(r && r.live) })).filter((r) => r.url || r.label) : undefined,
       formatTitle: s(b.info.formatTitle, 80),
       format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 14).map((r) => {
         const podium = r && r.kind === "podium";
