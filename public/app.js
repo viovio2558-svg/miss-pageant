@@ -663,11 +663,11 @@
     host.appendChild(wrap);
   }
   function getInfo() { var i = S.content.info || {}; return { formatTitle: i.formatTitle || "", format: i.format || [], schedule: i.schedule || [] }; }
-  function saveInfo(fn) { return edit(function (x) { x.info = x.info || { format: [], schedule: [] }; x.info.format = x.info.format || []; x.info.schedule = x.info.schedule || []; fn(x.info); }); }
+  function saveInfo(fn) { return edit(function (x) { x.info = x.info || { format: [], schedule: [] }; if (!x.info.links) x.info.links = DEF_LINKS.map(function (l) { return { label: l.label, url: l.url, live: !!l.live }; }); x.info.format = x.info.format || []; x.info.schedule = x.info.schedule || []; fn(x.info); }); }
   function infoEditor(host) {
     var g = getInfo(), wrap = mk("div");
     wrap.appendChild(mk("div", "sub-h", "รูปแบบการแข่งขัน (กรอบหน้าแรก)"));
-    var ft = mk("input", "input"); ft.value = g.formatTitle || ""; ft.placeholder = "หัวกรอบ เช่น MISS INDIA 2026 + FORMAT (เครื่องหมาย + จะกลายเป็นดาว)"; ft.setAttribute("aria-label", "หัวกรอบ"); ft.style.marginTop = "8px";
+    var ft = mk("input", "input"); ft.value = g.formatTitle || ""; ft.placeholder = "หัวกรอบ เช่น MISS HOST 2026 + FORMAT (เครื่องหมาย + จะกลายเป็นดาว)"; ft.setAttribute("aria-label", "หัวกรอบ"); ft.style.marginTop = "8px";
     ft.addEventListener("change", function () { saveInfo(function (x) { x.formatTitle = ft.value.trim(); }); }); wrap.appendChild(ft);
     wrap.appendChild(mk("div", "hint", "แสดงเป็นรูปไอคอนใต้ภาพสไลด์ (รอบละหนึ่งแถว) ปรับจำนวนคนได้ แก้แล้วคลิกออกจากช่อง ระบบบันทึกให้อัตโนมัติ ถ้าไม่มีรายการ หัวข้อนี้จะไม่แสดง"));
     var list = mk("div"); list.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
@@ -696,7 +696,7 @@
     });
     wrap.appendChild(list);
     var a1 = mk("div", "row"); a1.style.marginTop = "10px"; a1.appendChild(moveBtn("+ เพิ่มรูปแบบการแข่งขัน", function () { saveInfo(function (x) { x.format.push({ label: "TOP 5", kind: "row", count: 5, perRow: 0, extras: [] }); }); }));
-    a1.appendChild(moveBtn("ใส่ตัวอย่างตามภาพ", function () { saveInfo(function (x) { x.formatTitle = x.formatTitle || "MISS INDIA 2026 + FORMAT"; x.format = [{ label: "TOP 20", pill: "FROM 77 DELEGATES", kind: "row", count: 20, perRow: 10, sub: "TOP 18 FINALISTS FROM PRIMARY SCORE", extraTitle: "FAST TRACK WINNERS", extras: ["POPULAR VOTE", "BEST SELLER"], note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 10", kind: "row", count: 10, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 5", kind: "row", count: 5, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 3", kind: "row", count: 3, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "WINNER", kind: "podium", count: 2 }]; }); }));
+    a1.appendChild(moveBtn("ใส่ตัวอย่างตามภาพ", function () { saveInfo(function (x) { x.formatTitle = x.formatTitle || "MISS HOST 2026 + FORMAT"; x.format = [{ label: "TOP 20", pill: "FROM 77 DELEGATES", kind: "row", count: 20, perRow: 10, sub: "TOP 18 FINALISTS FROM PRIMARY SCORE", extraTitle: "FAST TRACK WINNERS", extras: ["POPULAR VOTE", "BEST SELLER"], note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 10", kind: "row", count: 10, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 5", kind: "row", count: 5, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "TOP 3", kind: "row", count: 3, note: "SCORING BY JUDGES 70% + VOTES 30%" }, { label: "WINNER", kind: "podium", count: 2 }]; }); }));
     wrap.appendChild(a1);
     wrap.appendChild(mk("div", "sub-h", "SCHEDULE (หน้าแรก)")).style.marginTop = "18px";
     wrap.appendChild(mk("div", "hint", "แสดงเป็นไทม์ไลน์ เช่น วันที่/ช่วงเวลา + กิจกรรม"));
@@ -724,6 +724,42 @@
     });
     wrap.appendChild(sl);
     var a2 = mk("div", "row"); a2.style.marginTop = "10px"; a2.appendChild(moveBtn("+ เพิ่มกำหนดการ", function () { saveInfo(function (x) { x.schedule.push({ when: "", title: "กิจกรรมใหม่", text: "" }); }); })); wrap.appendChild(a2);
+    host.appendChild(wrap);
+  }
+    var DEF_LINKS = [
+    { label: "LINE OpenChat", url: "https://line.me/ti/g2/sdflDNGf7Dfsa9BHz92GpYxL3UfTR82mnBAmdg" },
+    { label: "TikTok", url: "https://www.tiktok.com/@moohong.org" },
+    { label: "Discord", url: "https://discord.gg/UwT4NY8aGF" },
+    { label: "ดูไลฟ์ TikTok", url: "https://www.tiktok.com/@ywoueeiei", live: true }
+  ];
+  function getLinks() { var i = S.content && S.content.info; return i && Array.isArray(i.links) ? i.links : DEF_LINKS; }
+  function renderLinks() {
+    var h = $("footLinks"); if (!h) return; h.textContent = "";
+    getLinks().forEach(function (l) {
+      if (!l.url || !/^https?:\/\//i.test(l.url)) return;
+      var a = mk("a", l.live ? "live" : "", l.label || l.url); a.href = l.url; a.target = "_blank"; a.rel = "noopener noreferrer"; h.appendChild(a);
+    });
+  }
+  function linksEditor(host) {
+    var wrap = mk("div"); wrap.appendChild(mk("div", "sub-h", "LINKS (ลิงก์ติดตามข่าวสาร/ไลฟ์ ท้ายเว็บ)"));
+    wrap.appendChild(mk("div", "hint", "แก้แล้วคลิกออกจากช่อง ระบบบันทึกให้อัตโนมัติ ติ๊ก \"ช่องไลฟ์\" เพื่อให้ปุ่มมีจุดแดง"));
+    var list = mk("div"); list.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
+    getLinks().forEach(function (r, i) {
+      var c = mk("div", "gcard");
+      var l = mk("input", "input"); l.value = r.label || ""; l.placeholder = "ชื่อปุ่ม เช่น TikTok"; l.setAttribute("aria-label", "ชื่อปุ่ม");
+      var u = mk("input", "input"); u.type = "url"; u.value = r.url || ""; u.placeholder = "https://..."; u.setAttribute("aria-label", "ลิงก์");
+      l.addEventListener("change", function () { saveInfo(function (x) { x.links[i].label = l.value.trim(); }); });
+      u.addEventListener("change", function () { saveInfo(function (x) { x.links[i].url = u.value.trim(); }); });
+      var lb = mk("label", "check"), cb = mk("input"); cb.type = "checkbox"; cb.checked = !!r.live; lb.appendChild(cb); lb.appendChild(mk("span", null, " ช่องไลฟ์"));
+      cb.addEventListener("change", function () { saveInfo(function (x) { x.links[i].live = cb.checked; }); });
+      c.appendChild(l); c.appendChild(u); c.appendChild(lb);
+      var row = mk("div", "row");
+      row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var t = x.links[i - 1]; x.links[i - 1] = x.links[i]; x.links[i] = t; } }); }, i === 0));
+      row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.links.splice(i, 1); }); }));
+      c.appendChild(row); list.appendChild(c);
+    });
+    wrap.appendChild(list);
+    var ar = mk("div", "row"); ar.style.marginTop = "10px"; ar.appendChild(moveBtn("+ เพิ่มลิงก์", function () { saveInfo(function (x) { x.links.push({ label: "ลิงก์ใหม่", url: "https://", live: false }); }); })); wrap.appendChild(ar);
     host.appendChild(wrap);
   }
   function guideEditor(host) {
@@ -934,6 +970,7 @@
     h1.appendChild(u1); host.appendChild(h1);
 
     infoEditor(host);
+    linksEditor(host);
     guideEditor(host);
   }
 
@@ -1023,12 +1060,12 @@
     var l2 = document.getElementById("fontLink"); if (l2) l2.href = "https://fonts.googleapis.com/css2?family=" + (wide ? "Nunito+Sans:wdth,wght@75..125,200..1000" : encodeURIComponent(name).replace(/%20/g, "+") + ":wght@400;700") + "&display=swap";
   }
   function applyBrand() {
-    var name = String(S.settings.eventName || "").trim() || "Miss India";
+    var name = String(S.settings.eventName || "").trim() || "Miss Host";
     var sig = name + "|" + (S.settings.star !== false) + "|" + (S.settings.presText || "") + "|" + (S.settings.presUrl || ""); if (sig === S.brandSig) return; S.brandSig = sig;
     var st = S.settings.star !== false; fillBrand($("brandName"), name, st); fillBrand($("heroName"), name, st); fillPresented($("presNav")); fillPresented($("presHero"));
     document.title = name; $("hero").setAttribute("aria-label", name);
     $("rosterEyebrow").textContent = "ทำเนียบ · " + name; $("regTitle").textContent = "Register Now for " + name;
-    $("adminTitle").textContent = "แอดมิน " + name; $("foot").textContent = "ติดตามข่าวสารจากทีมงาน " + name;
+    $("adminTitle").textContent = "แอดมิน " + name; $("footTxt").textContent = "ติดตามข่าวสารจากทีมงาน " + name + " · เวทีเจ้าภาพในเครือ Miss Moohong";
   }
 
   /* ---------- รายชื่อพื้นที่ (หน้าแอดมิน) ---------- */
@@ -1056,6 +1093,7 @@
     if (S.loaded) poll();
   }
   function render() {
+    renderLinks();
     applyBrand(); applyTheme(); applyFont();
     if (S.view === "home") renderHome(); else if (S.view === "roster") renderRoster(); else if (S.view === "register") renderRegister(); else if (S.view === "admin") renderAdmin();
     renderDock();
