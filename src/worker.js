@@ -526,6 +526,7 @@ async function adminContent(req, env) {
   if (b.info && typeof b.info === "object") {
     const s = (v, n) => String(v || "").trim().slice(0, n);
     out.info = {
+      prizes: Array.isArray(b.info.prizes) ? b.info.prizes.slice(0, 12).map((r) => ({ title: s(r && r.title, 60), text: s(r && r.text, 300) })).filter((r) => r.title || r.text) : undefined,
       links: Array.isArray(b.info.links) ? b.info.links.slice(0, 10).map((r) => ({ label: s(r && r.label, 40), url: cleanUrl(r && r.url), live: !!(r && r.live) })).filter((r) => r.url || r.label) : undefined,
       formatTitle: s(b.info.formatTitle, 80),
       format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 14).map((r) => {
