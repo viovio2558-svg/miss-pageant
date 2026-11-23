@@ -355,9 +355,14 @@
     st.appendChild(mid); host.appendChild(st);
     if (x.note || !last) host.appendChild(mk("div", x.note ? "stg-sep has" : "stg-sep", x.note || ""));
   }
+  var DEF_PRIZES = [{ title: "MISS MOOHONG USA", text: "ได้รับสิทธิ์เป็นตัวแทนประเทศเจ้าภาพไปประกวดต่อที่ 3rd Miss Moohong ถ้าผู้ชนะไม่รับสิทธิ์ สิทธิ์จะลดลงมาตามลำดับผู้ชนะ" }];
+  function getPrizes() { var i = S.content && S.content.info; return i && Array.isArray(i.prizes) ? i.prizes : DEF_PRIZES; }
+  function pz(x, k) { return x[k]; }
   function renderInfo() {
     var info = S.content.info || {}, f = (info.format || []).filter(function (x) { return x.label || x.count || x.pill; }), s = (info.schedule || []).filter(function (x) { return x.when || x.title || x.text; });
-    $("infoSec").hidden = !f.length && !s.length; $("fmtSec").hidden = !f.length; $("schSec").hidden = !s.length;
+    var pr = getPrizes().filter(function (x) { return x.title || x.text; });
+    $("infoSec").hidden = !f.length && !s.length && !pr.length; $("prizeSec").hidden = !pr.length;
+    var pl = $("prizeList"); pl.textContent = ""; pr.forEach(function (x) { var li = mk("li"); li.appendChild(mk("div", "pt", pz(x, "title"))); li.appendChild(mk("div", "px", pz(x, "text"))); pl.appendChild(li); }); $("fmtSec").hidden = !f.length; $("schSec").hidden = !s.length;
     var fl = $("fmtList"); fl.textContent = ""; var fin = mk("div", "fmt-inner"); fl.appendChild(fin); f.forEach(function (x, i) { renderStage(fin, x, i === f.length - 1); });
     var tp = $("fmtTop"), ft = String(info.formatTitle || "").trim(); tp.hidden = !ft; tp.textContent = ""; if (ft) { var pi = ft.indexOf("+"); if (pi >= 0) { tp.appendChild(document.createTextNode(ft.slice(0, pi).trim())); tp.appendChild(starEl()); tp.appendChild(mk("b", null, ft.slice(pi + 1).trim())); } else tp.appendChild(document.createTextNode(ft)); }
     var sl = $("schList"); sl.textContent = "";
@@ -696,7 +701,29 @@
     host.appendChild(wrap);
   }
   function getInfo() { var i = S.content.info || {}; return { formatTitle: i.formatTitle || "", format: i.format || [], schedule: i.schedule || [] }; }
-  function saveInfo(fn) { return edit(function (x) { x.info = x.info || { format: [], schedule: [] }; if (!x.info.links) x.info.links = DEF_LINKS.map(function (l) { return { label: l.label, url: l.url, live: !!l.live }; }); x.info.format = x.info.format || []; x.info.schedule = x.info.schedule || []; fn(x.info); }); }
+  function saveInfo(fn) { return edit(function (x) { x.info = x.info || { format: [], schedule: [] }; if (!x.info.prizes) x.info.prizes = DEF_PRIZES.map(function (l) { return { title: l.title, text: l.text }; }); if (!x.info.links) x.info.links = DEF_LINKS.map(function (l) { return { label: l.label, url: l.url, live: !!l.live }; }); x.info.format = x.info.format || []; x.info.schedule = x.info.schedule || []; fn(x.info); }); }
+  function prizesEditor(host) {
+    var wrap = mk("div"); wrap.appendChild(mk("div", "sub-h", "PRIZES & PERKS (รางวัลและสิทธิพิเศษ)"));
+    wrap.appendChild(mk("div", "hint", "แสดงบนหน้าแรก ช่องภาษาอังกฤษไม่บังคับ (ถ้าเว้นว่าง โหมด EN จะใช้ข้อความไทย) แก้แล้วคลิกออกจากช่อง ระบบบันทึกให้อัตโนมัติ"));
+    var list = mk("div"); list.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:10px";
+    getPrizes().forEach(function (r, i) {
+      var c = mk("div", "gcard");
+      function fld(ph, val, key, multi) {
+        var e = mk(multi ? "textarea" : "input", "input"); e.value = val || ""; e.placeholder = ph; e.setAttribute("aria-label", ph); if (multi) e.style.minHeight = "56px";
+        e.addEventListener("change", function () { saveInfo(function (x) { x.prizes[i][key] = e.value.trim(); }); }); c.appendChild(e);
+      }
+      fld("ชื่ออันดับ เช่น MISS MOOHONG", r.title, "title"); fld("รางวัล/สิทธิ์ (ไทย)", r.text, "text", true);
+     
+      var row = mk("div", "row");
+      row.appendChild(moveBtn("↑", function () { saveInfo(function (x) { if (i > 0) { var t = x.prizes[i - 1]; x.prizes[i - 1] = x.prizes[i]; x.prizes[i] = t; } }); }, i === 0));
+      row.appendChild(moveBtn("↓", function () { saveInfo(function (x) { if (i < x.prizes.length - 1) { var t = x.prizes[i + 1]; x.prizes[i + 1] = x.prizes[i]; x.prizes[i] = t; } }); }, i === getPrizes().length - 1));
+      row.appendChild(moveBtn("ลบ", function () { saveInfo(function (x) { x.prizes.splice(i, 1); }); }));
+      c.appendChild(row); list.appendChild(c);
+    });
+    wrap.appendChild(list);
+    var ar = mk("div", "row"); ar.style.marginTop = "10px"; ar.appendChild(moveBtn("+ เพิ่มรางวัล", function () { saveInfo(function (x) { x.prizes.push({ title: "TOP 3", text: "" }); }); })); wrap.appendChild(ar);
+    host.appendChild(wrap);
+  }
   function infoEditor(host) {
     var g = getInfo(), wrap = mk("div");
     wrap.appendChild(mk("div", "sub-h", "รูปแบบการแข่งขัน (กรอบหน้าแรก)"));
@@ -1100,6 +1127,7 @@
     u1.appendChild(uploadBtn("+ เพิ่มรูปหน้าแรก", true, 2400, function (ids) { return edit(function (n) { n.hero = (n.hero || []).concat(ids.map(function (id) { return { asset: id }; })); }); }));
     h1.appendChild(u1); host.appendChild(h1);
 
+    prizesEditor(host);
     infoEditor(host);
     linksEditor(host);
     guideEditor(host);
