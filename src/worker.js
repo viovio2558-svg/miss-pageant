@@ -122,6 +122,11 @@ function schedule(s, t) {
   if (s.closesAt && t >= s.closesAt) return false;
   return true;
 }
+function parseRej(note) {
+  try { const o = JSON.parse(note); if (o && Array.isArray(o.r)) return { reasons: o.r.filter((x) => x === "surname" || x === "photo"), msg: String(o.m || "") }; } catch { /* plain text */ }
+  return null;
+}
+function firstTok(n) { return String(n || "").trim().split(/\s+/)[0] || ""; }
 function stateOf(c, slip, rv) {
   if (c.slip_at == null) return "unpaid";
   if (!slip) return "pending";
@@ -167,7 +172,8 @@ async function myClaims(env, owner) {
         expiresAt: c.expires_at,
         slipAt: c.slip_at,
         state: stateOf(c, slip, rv),
-        note: rv && rv.status === "rejected" && slip && rv.at >= slip.uploaded_at ? rv.note || "" : "",
+        note: rv && rv.status === "rejected" && slip && rv.at >= slip.uploaded_at ? (parseRej(rv.note) ? parseRej(rv.note).msg : rv.note || "") : "",
+        reject: rv && rv.status === "rejected" && slip && rv.at >= slip.uploaded_at ? parseRej(rv.note) || { reasons: [], msg: rv.note || "" } : null,
         slip: slip ? { imageId: slip.image_id, amount: slip.amount, uploadedAt: slip.uploaded_at } : null,
       };
     });
@@ -197,7 +203,7 @@ async function apiClaim(req, env, ip) {
   if (!schedule(settings, t)) return fail(403, "closed", "ตอนนี้ยังไม่เปิดหรือปิดรับสมัครแล้ว");
   if (!c) return fail(400, "bad_country", "ไม่พบพื้นที่นี้");
   if (!USER_RE.test(username)) return fail(400, "bad_username", "Username ไม่ถูกต้อง เช่น @mali");
-  if (fullName.length < 2 || fullName.length > 60) return fail(400, "bad_name", "ชื่อและนามสกุลไม่ถูกต้อง");
+  if (fullName.length < 3 || fullName.length > 60 || !/\s/.test(fullName)) return fail(400, "bad_name", "กรอกทั้งชื่อและนามสกุล");
 
   // 1 คน สมัครได้ 1 พื้นที่ (นับทั้งรหัสเบราว์เซอร์และ Username ไม่สนตัวพิมพ์ใหญ่เล็ก)
   const mine = await myClaims(env, owner);
@@ -257,6 +263,37 @@ async function apiPhoto(req, env) {
     env.DB.prepare("UPDATE countries SET photo_id = ? WHERE slug = ? AND owner = ?").bind(id, slug, owner),
     ...deleteImageStmts(env, c.photo_id),
   ]);
+  await resolveReject(env, slug);
+  memo = null;
+  return json({ ok: true });
+}
+
+async function resolveReject(env, slug) {
+  const r = await env.DB.prepare("SELECT c.full_name, c.photo_id, r.status, r.note FROM countries c JOIN reviews r ON r.slug = c.slug WHERE c.slug = ?").bind(slug).first();
+  if (!r || r.status !== "rejected") return false;
+  const rj = parseRej(r.note);
+  if (!rj || !rj.reasons.length) return false;
+  const needS = rj.reasons.includes("surname") && String(r.full_name || "").trim().split(/\s+/).length < 2;
+  const needP = rj.reasons.includes("photo") && !r.photo_id;
+  if (needS || needP) return false;
+  await env.DB.prepare("DELETE FROM reviews WHERE slug = ?").bind(slug).run();
+  return true;
+}
+
+async function apiFix(req, env) {
+  const owner = ownerOf(req);
+  let b = {};
+  try { b = await req.json(); } catch { /* empty */ }
+  const slug = String(b.slug || "");
+  const c = owner && (await ownedLive(env, slug, owner));
+  if (!c) return fail(410, "gone", "ประเทศนี้ไม่ได้อยู่กับคุณแล้ว");
+  const rv = await env.DB.prepare("SELECT status, note FROM reviews WHERE slug = ?").bind(slug).first();
+  const rj = rv && rv.status === "rejected" ? parseRej(rv.note) : null;
+  if (!rj || !rj.reasons.includes("surname")) return fail(409, "not_rejected", "ไม่มีรายการที่ต้องแก้ไข");
+  const last = String(b.lastName || "").trim().replace(/\s+/g, " ");
+  if (last.length < 1 || last.length > 40) return fail(400, "bad_name", "ชื่อและนามสกุลไม่ถูกต้อง");
+  await env.DB.prepare("UPDATE countries SET full_name = ? WHERE slug = ? AND owner = ?").bind(firstTok(c.full_name) + " " + last, slug, owner).run();
+  await resolveReject(env, slug);
   memo = null;
   return json({ ok: true });
 }
@@ -346,23 +383,51 @@ async function adminList(env) {
         expiresAt: c.expires_at,
         slipAt: c.slip_at,
         state: stateOf(c, slip, rv),
-        note: rv ? rv.note || "" : "",
+        note: rv ? (parseRej(rv.note) ? parseRej(rv.note).msg : rv.note || "") : "",
+        reject: rv && rv.status === "rejected" ? parseRej(rv.note) || { reasons: [], msg: rv.note || "" } : null,
         slip: slip ? { imageId: slip.image_id, amount: slip.amount, uploadedAt: slip.uploaded_at } : null,
       };
     });
   return json({ list });
 }
 
+async function reviewOne(env, slug, status, reasons, msg) {
+  if (typeof slug !== "string") return "bad";
+  const slip = await env.DB.prepare("SELECT 1 AS x FROM slips WHERE slug = ?").bind(slug).first();
+  if (!slip) return "no_slip";
+  let note = String(msg || "").slice(0, 200);
+  const stmts = [];
+  if (status === "rejected" && reasons.length) {
+    note = JSON.stringify({ r: reasons, m: note });
+    const c = await env.DB.prepare("SELECT photo_id, full_name FROM countries WHERE slug = ?").bind(slug).first();
+    if (c) {
+      if (reasons.includes("surname")) stmts.push(env.DB.prepare("UPDATE countries SET full_name = ? WHERE slug = ?").bind(firstTok(c.full_name), slug));
+      if (reasons.includes("photo")) {
+        stmts.push(env.DB.prepare("UPDATE countries SET photo_id = NULL WHERE slug = ?").bind(slug));
+        stmts.push(...deleteImageStmts(env, c.photo_id));
+      }
+    }
+  }
+  stmts.push(env.DB.prepare("INSERT INTO reviews (slug, status, note, at) VALUES (?, ?, ?, ?) ON CONFLICT(slug) DO UPDATE SET status = excluded.status, note = excluded.note, at = excluded.at").bind(slug, status, note, now()));
+  await env.DB.batch(stmts);
+  return "ok";
+}
+
 async function adminReview(req, env) {
   const b = await req.json();
   const status = b.status === "approved" ? "approved" : b.status === "rejected" ? "rejected" : "";
-  if (typeof b.slug !== "string" || !status) return fail(400, "bad_request", "ข้อมูลไม่ถูกต้อง");
-  const slip = await env.DB.prepare("SELECT 1 AS x FROM slips WHERE slug = ?").bind(b.slug).first();
-  if (!slip) return fail(409, "no_slip", "ยังไม่มีสลิป");
-  await env.DB.prepare("INSERT INTO reviews (slug, status, note, at) VALUES (?, ?, ?, ?) ON CONFLICT(slug) DO UPDATE SET status = excluded.status, note = excluded.note, at = excluded.at")
-    .bind(b.slug, status, String(b.note || "").slice(0, 200), now()).run();
+  const slugs = Array.isArray(b.slugs) ? [...new Set(b.slugs)].slice(0, 300) : [b.slug];
+  if (!status || !slugs.length) return fail(400, "bad_request", "ข้อมูลไม่ถูกต้อง");
+  const reasons = (Array.isArray(b.reasons) ? b.reasons : []).filter((x) => x === "surname" || x === "photo");
+  let done = 0, skipped = 0;
+  for (const slug of slugs) {
+    const r = await reviewOne(env, slug, status, reasons, b.note);
+    if (r === "ok") done++;
+    else if (slugs.length === 1) return r === "no_slip" ? fail(409, "no_slip", "ยังไม่มีสลิป") : fail(400, "bad_request", "ข้อมูลไม่ถูกต้อง");
+    else skipped++;
+  }
   memo = null;
-  return json({ ok: true });
+  return json({ ok: true, done, skipped });
 }
 
 async function adminRelease(req, env) {
@@ -552,6 +617,7 @@ export default {
       if (p === "/api/claim" && post) return await apiClaim(req, env, ip);
       if (p === "/api/photo" && post) return await apiPhoto(req, env);
       if (p === "/api/slip" && post) return await apiSlip(req, env);
+      if (p === "/api/fix" && post) return await apiFix(req, env);
       if (p === "/api/admin/login" && post) return await adminLogin(req, env);
       if (p === "/api/admin/logout" && post) return json({ ok: true }, 200, { "set-cookie": "mm_admin=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict" });
 
