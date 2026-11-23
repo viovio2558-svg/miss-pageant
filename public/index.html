@@ -274,6 +274,12 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .arow .c { font-family: var(--font-display); font-weight: 700; overflow-wrap: anywhere; }
 .arow .s { font-size: 13.5px; color: var(--muted); overflow-wrap: anywhere; }
 .arow .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.arow .pick { display: flex; align-items: center; justify-content: center; padding: 4px; cursor: pointer; }
+.arow .pick input { width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+.arow.picked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.bulkbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.bulkbar .check { align-items: center; font-size: 14px; }
+.bulkbar .check input { margin-top: 0; }
 .alist { display: flex; flex-direction: column; gap: 10px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .edit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -498,6 +504,10 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
           <button class="btn ghost sm" id="zipAll" type="button">ZIP รูปทั้งหมด</button>
           <button class="btn ghost sm" id="zipPaid" type="button" hidden>ZIP</button>
           <button class="btn ghost sm" id="csvBtn" type="button">ดาวน์โหลดรายชื่อ CSV</button>
+        </div>
+        <div class="bulkbar" id="aBulk" hidden>
+          <label class="check"><input type="checkbox" id="aSelAll"> <span id="aSelTxt">เลือกทั้งหมด</span></label>
+          <button class="btn warn sm" id="aRelSel" type="button" disabled>ปล่อยที่เลือก</button>
         </div>
         <div class="alist" id="aList"></div>
         <div class="empty" id="aEmpty" hidden>ไม่มีรายการในหมวดนี้</div>

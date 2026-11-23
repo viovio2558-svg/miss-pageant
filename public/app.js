@@ -62,7 +62,7 @@
   }
 
   var S = {
-    offset: 0, settings: {}, content: {}, taken: {}, approved: [], me: [], admin: false, adminList: [],
+    aSel: {}, aVis: [], offset: 0, settings: {}, content: {}, taken: {}, approved: [], me: [], admin: false, adminList: [],
     regions: [], regSig: "", fontSig: "", themeSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
     rTab: "all", rQ: "", aTab: "all", aQ: "", mineSig: "", edSig: "", heroSig: "", settingsFilled: false,
     heroIdx: 0, heroTimer: null, polling: false, pollTimer: null, queue: Promise.resolve(), blobs: {}
@@ -854,7 +854,10 @@
       if (S.aTab === "approved" && c.state !== "approved") return false;
       return !q || (c.country + " " + c.fullName + " " + c.username).toLowerCase().indexOf(q) !== -1;
     });
+    Object.keys(S.aSel).forEach(function (k) { if (!all.some(function (c) { return c.slug === k; })) delete S.aSel[k]; });
+    S.aVis = list;
     var host = $("aList"); host.textContent = ""; list.forEach(function (c) { host.appendChild(adminRow(c)); });
+    bulkSync();
     $("aEmpty").hidden = list.length > 0;
     renderEditor(); setupCollapse();
     if (!S.settingsFilled && S.loaded) {
@@ -865,7 +868,10 @@
   }
   function adminRow(c) {
     var st = c.state, slip = c.slip;
-    var r = mk("div", "arow"), th = mk("div", "thumbs");
+    var r = mk("div", "arow" + (S.aSel[c.slug] ? " picked" : "")), th = mk("div", "thumbs");
+    var pk = mk("label", "pick"), pc = mk("input"); pc.type = "checkbox"; pc.checked = !!S.aSel[c.slug]; pc.setAttribute("aria-label", "เลือก " + c.country);
+    pc.addEventListener("change", function () { if (pc.checked) S.aSel[c.slug] = true; else delete S.aSel[c.slug]; r.classList.toggle("picked", pc.checked); bulkSync(); });
+    pk.appendChild(pc); th.appendChild(pk);
     var pb = mk("button"); pb.type = "button"; pb.setAttribute("aria-label", "ดูรูปโปรไฟล์"); pb.appendChild(picEl(c.photoId, "รูป " + c.fullName));
     if (c.photoId) pb.addEventListener("click", function () { lightbox(c.country + " · " + c.fullName, secureBlobUrl(c.photoId), function () { savePhoto(c); }); }); else pb.style.cursor = "default";
     th.appendChild(pb);
@@ -884,6 +890,40 @@
     if (c.photoId) act("บันทึกรูป", "ghost", function () { savePhoto(c); });
     act("ปล่อยพื้นที่", "warn", function () { openRelease(c); });
     r.appendChild(acts); return r;
+  }
+  function bulkPicked() { return S.aVis.filter(function (c) { return S.aSel[c.slug]; }); }
+  function bulkSync() {
+    var bar = $("aBulk"); if (!bar) return;
+    var n = bulkPicked().length, tot = S.aVis.length;
+    bar.hidden = !tot;
+    var all = $("aSelAll"); all.checked = tot > 0 && n === tot; all.indeterminate = n > 0 && n < tot;
+    $("aSelTxt").textContent = n ? "เลือกแล้ว " + n + " จาก " + tot + " รายการ" : "เลือกทั้งหมด (" + tot + ")";
+    var b = $("aRelSel"); b.disabled = !n; b.textContent = n ? "ปล่อยที่เลือก (" + n + ")" : "ปล่อยที่เลือก";
+  }
+  function bulkSelectAll(on) {
+    S.aVis.forEach(function (c) { if (on) S.aSel[c.slug] = true; else delete S.aSel[c.slug]; });
+    document.querySelectorAll("#aList .arow").forEach(function (row) { row.classList.toggle("picked", on); var i = row.querySelector(".pick input"); if (i) i.checked = on; });
+    bulkSync();
+  }
+  function openReleaseMany() {
+    var picked = bulkPicked(); if (!picked.length) return;
+    modal(function (m) {
+      m.appendChild(mk("h3", null, "ปล่อย " + picked.length + " รายการคืน?"));
+      var ul = mk("div", "s"); ul.style.maxHeight = "180px"; ul.style.overflowY = "auto"; ul.style.margin = "8px 0";
+      picked.forEach(function (c) { ul.appendChild(mk("div", null, "• " + c.country + " · " + (c.fullName || "") + (c.username ? " (" + c.username + ")" : ""))); });
+      m.appendChild(ul);
+      m.appendChild(mk("div", "lock", "พื้นที่ ที่เลือกจะกลับมาว่างให้ทุกคนเลือกได้ รูปและสลิปของผู้สมัครเหล่านี้จะถูกลบทั้งหมด ถ้าต้องการเก็บรูป ให้บันทึกรูปก่อน"));
+      var row = mk("div", "row"); row.style.justifyContent = "flex-end";
+      var cancel = mk("button", "btn ghost", "ยกเลิก"); cancel.type = "button"; cancel.addEventListener("click", closeModal);
+      var go = mk("button", "btn", "ปล่อย " + picked.length + " รายการ"); go.type = "button";
+      go.addEventListener("click", async function () {
+        go.disabled = true;
+        var slugs = picked.map(function (c) { return c.slug; });
+        var r = await adminCall("/api/admin/release-many", { slugs: slugs }); closeModal();
+        if (r.ok) { slugs.forEach(function (s) { delete S.aSel[s]; }); setStatus("ปล่อยแล้ว " + (r.data.released || slugs.length) + " รายการ"); await poll(); }
+      });
+      row.appendChild(cancel); row.appendChild(go); m.appendChild(row);
+    });
   }
   async function adminCall(path, json) {
     var r = await api(path, { method: "POST", json: json });
@@ -1107,6 +1147,8 @@
   $("q").addEventListener("input", function (e) { S.q = e.target.value; renderRegisterBoard(); });
   $("rQ").addEventListener("input", function (e) { S.rQ = e.target.value; renderRoster(); });
   $("aQ").addEventListener("input", function (e) { S.aQ = e.target.value; renderAdmin(); });
+  $("aSelAll").addEventListener("change", function (e) { bulkSelectAll(e.target.checked); });
+  $("aRelSel").addEventListener("click", openReleaseMany);
   $("photo").addEventListener("change", function (e) { photoFile = e.target.files[0] || null; updatePhotoUi(); setErr("f-photo", "e-photo", ""); });
   $("username").addEventListener("blur", function (e) { e.target.value = normUser(e.target.value); });
   $("goBtn").addEventListener("click", function () { setStatus(""); var v = validate(); if (v) openConfirm(v); });
