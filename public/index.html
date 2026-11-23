@@ -277,6 +277,16 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 .arow .pick { display: flex; align-items: center; justify-content: center; padding: 4px; cursor: pointer; }
 .arow .pick input { width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
 .arow.picked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rejbox { border: 2px solid #ff5d73; background: color-mix(in srgb, #ff5d73 12%, var(--bg)); border-radius: 12px; padding: 14px; display: grid; gap: 8px; }
+.rejbox h4 { margin: 0; font-size: 16px; color: #ff8a9a; }
+.rejbox ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.rejbox .rmsg { padding: 8px 10px; border-radius: 8px; background: var(--panel); }
+.rejbox .rnote { font-weight: 700; padding: 8px 10px; border-radius: 8px; border: 1px dashed #ff8a9a; }
+.rejbox .fixrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.rejbox .fixrow .input { flex: 1 1 160px; min-width: 0; }
+.card.needfix { border-color: #ff5d73; }
+.links a.alert::after { content: "!"; display: inline-block; margin-left: 6px; min-width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 50%; background: #ff3b57; color: #fff; font-size: 11px; font-weight: 800; }
 .bulkbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 12px; }
 .bulkbar .check { align-items: center; font-size: 14px; }
 .bulkbar .check input { margin-top: 0; }
@@ -428,6 +438,11 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
     </header>
     <div id="closedNote" class="notice warn" hidden></div>
 
+    <section class="sec" id="mineSec" hidden aria-labelledby="h-mine">
+      <h2 id="h-mine">ใบสมัครของคุณ <small>สถานะใบสมัคร</small></h2>
+      <div class="mine-list" id="mineList"></div>
+    </section>
+
     <section class="sec" aria-labelledby="h-rules">
       <h2 id="h-rules">คุณสมบัติและกติกา</h2>
       <div class="rules" id="rulesReg"></div>
@@ -444,8 +459,9 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
           <div class="err" id="e-user"></div>
         </div>
         <div class="field" id="f-name">
-          <label for="fullname">ชื่อและนามสกุลที่ใช้ประกวด <em>*</em></label>
-          <input class="input" id="fullname" placeholder="เช่น Aria Moon" autocomplete="off">
+          <span class="lab">ชื่อและนามสกุลที่ใช้ประกวด <em>*</em></span>
+          <div class="two"><input class="input" id="firstname" placeholder="ชื่อ เช่น Aria" aria-label="ชื่อ" autocomplete="off"><input class="input" id="lastname" placeholder="นามสกุล เช่น Moon" aria-label="นามสกุล" autocomplete="off"></div>
+          <div class="hint">ห้ามใช้ชื่อสังกัดบ้านเป็นนามสกุล</div>
           <div class="err" id="e-name"></div>
         </div>
         <div class="field" id="f-photo">
@@ -473,10 +489,6 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
       <div class="empty" id="noMatch" hidden>ไม่พบพื้นที่ที่ค้นหา</div>
     </section>
 
-    <section class="sec" id="mineSec" hidden aria-labelledby="h-mine">
-      <h2 id="h-mine">ใบสมัครของคุณ <small>สถานะใบสมัคร</small></h2>
-      <div class="mine-list" id="mineList"></div>
-    </section>
   </main>
 
   <!-- ADMIN -->
@@ -507,6 +519,9 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
         </div>
         <div class="bulkbar" id="aBulk" hidden>
           <label class="check"><input type="checkbox" id="aSelAll"> <span id="aSelTxt">เลือกทั้งหมด</span></label>
+          <button class="btn ok sm" id="aApprSel" type="button" disabled>อนุมัติที่เลือก</button>
+          <button class="btn ghost sm" id="aSaveSel" type="button" disabled>บันทึกรูปที่เลือก</button>
+          <button class="btn warn sm" id="aRejSel" type="button" disabled>ไม่ผ่านที่เลือก</button>
           <button class="btn warn sm" id="aRelSel" type="button" disabled>ปล่อยที่เลือก</button>
         </div>
         <div class="alist" id="aList"></div>

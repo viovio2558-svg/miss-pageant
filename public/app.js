@@ -107,7 +107,7 @@
 
   /* ---------- derived state ---------- */
   var STATE_TH = { unpaid: "รอยืนยัน", pending: "รอแอดมินยืนยัน", approved: "ยืนยันแล้ว", rejected: "ไม่ผ่าน" };
-  function chip(st) { return mk("span", "chip " + st, STATE_TH[st]); }
+  function chip(st, rej) { return mk("span", "chip " + st, rej ? "ไม่ผ่าน · รอแก้ไข" : STATE_TH[st]); }
   function chFee(ch) { return ch && ch.fee != null && ch.fee !== "" ? ch.fee : (S.settings.fee != null && S.settings.fee !== "" ? S.settings.fee : null); }
   function feeTextFor(ch) { var f = chFee(ch); return f != null ? baht(f) : "ตามที่ทีมงานแจ้ง"; }
   function feeText() { return S.settings.fee != null && S.settings.fee !== "" ? baht(S.settings.fee) : "ตามที่ทีมงานแจ้ง"; }
@@ -434,29 +434,30 @@
     if (c) { $("dockName").textContent = c.name; $("dockCont").textContent = ""; }
   }
   function mineSignature() {
-    return JSON.stringify(S.me.map(function (m) { return [m.slug, m.photoId || "", m.slipAt || 0, m.expiresAt || 0, m.state, (m.slip || {}).imageId || "", m.note || "", S.settings.fee, JSON.stringify((S.content && S.content.payments) || 0)]; }));
+    return JSON.stringify(S.me.map(function (m) { return [m.slug, m.photoId || "", m.slipAt || 0, m.expiresAt || 0, m.state, (m.slip || {}).imageId || "", m.note || "", JSON.stringify(m.reject || 0), m.fullName, S.settings.fee, JSON.stringify((S.content && S.content.payments) || 0)]; }));
   }
   function renderMine(force) {
     $("mineSec").hidden = S.me.length === 0;
+    var lkr = document.querySelector('[data-link="register"]'); if (lkr) lkr.classList.toggle("alert", S.me.some(function (m) { return !!m.reject; }));
     var sig = mineSignature(); if (!force && sig === S.mineSig) return; S.mineSig = sig;
     var host = $("mineList"); host.textContent = "";
     S.me.forEach(function (m) {
       var card = mk("div", "card"), top = mk("div", "top"); top.appendChild(picEl(m.photoId, "รูปของ " + m.fullName));
       var b = mk("div", "b");
       b.appendChild(mk("div", "c", m.country)); b.appendChild(mk("div", "s", m.fullName + " · " + m.username));
-      if (!m.photoId) {
+      if (!m.photoId && !m.reject) {
         var lab = mk("label", "btn ghost sm", "อัปโหลดรูปโปรไฟล์"); lab.style.cursor = "pointer"; lab.style.marginTop = "6px";
         var inp = mk("input"); inp.type = "file"; inp.accept = "image/png,image/jpeg,image/webp"; inp.style.display = "none";
         inp.addEventListener("change", function () { if (inp.files[0]) attachPhoto(m.slug, inp.files[0], lab); });
         lab.appendChild(inp); b.appendChild(lab);
       }
-      top.appendChild(b); card.appendChild(top); card.appendChild(payPanel(m)); host.appendChild(card);
+      top.appendChild(b); card.appendChild(top); if (m.reject) { card.classList.add("needfix"); card.appendChild(rejectBox(m)); } card.appendChild(payPanel(m)); host.appendChild(card);
     });
     updateTimers();
   }
   function payPanelOld(m) {
     var st = m.state, slip = m.slip;
-    var p = mk("div", "pay"), h = mk("h4"); h.appendChild(document.createTextNode("ค่าสมัคร ")); h.appendChild(chip(st)); p.appendChild(h);
+    var p = mk("div", "pay"), h = mk("h4"); h.appendChild(document.createTextNode("ค่าสมัคร ")); h.appendChild(chip(st, m.reject)); p.appendChild(h);
     if (st === "unpaid") {
       var t = mk("div", "timer"); t.dataset.slug = m.slug;
       t.appendChild(mk("div", "tm", mmss(m.expiresAt - nowMs()))); t.appendChild(mk("div", "tx", "โอนและแนบสลิปให้ทันเวลา ถ้าหมดเวลา พื้นที่จะหลุดทันทีและต้องกรอกใหม่")); p.appendChild(t);
@@ -466,6 +467,7 @@
       th.addEventListener("click", function () { lightbox("สลิปของคุณ", secureBlobUrl(slip.imageId)); });
       row.appendChild(th); row.appendChild(mk("span", "hint", "ส่งเมื่อ " + fmtDate(slip.uploadedAt))); p.appendChild(row);
     }
+    if (m.reject) { p.appendChild(mk("div", "hint", "ส่งสลิปแล้ว หลังแก้ไขตามด้านบน ทีมงานจะตรวจใหม่อัตโนมัติ")); return p; }
     if (st === "approved") { p.appendChild(mk("div", "hint", "ทีมงานยืนยันการชำระแล้ว ชื่อของคุณขึ้นในทำเนียบผู้สมัครแล้ว")); return p; }
     if (st === "pending") p.appendChild(mk("div", "hint", "ทีมงานกำลังตรวจสลิป ถ้าส่งผิดไฟล์ ส่งใหม่ได้ด้านล่าง"));
     if (st === "rejected") p.appendChild(mk("div", "notice warn", "สลิปไม่ผ่าน" + (m.note ? ": " + m.note : "") + " กรุณาส่งสลิปใหม่"));
@@ -491,6 +493,36 @@
     });
     p.appendChild(send);
     return p;
+  }
+  function rejectBox(m) {
+    var rj = m.reject, bx = mk("div", "rejbox"); bx.appendChild(mk("h4", null, "ใบสมัครของคุณไม่ผ่าน ต้องแก้ไข"));
+    var ul = mk("ul");
+    if (rj.reasons.indexOf("surname") >= 0) ul.appendChild(mk("li", null, "ใช้สังกัดบ้านเป็นนามสกุล: นามสกุลถูกลบแล้ว กรุณากรอกนามสกุลใหม่ (ห้ามใช้ชื่อสังกัดบ้าน)"));
+    if (rj.reasons.indexOf("photo") >= 0) ul.appendChild(mk("li", null, "รูป Portrait ไม่ผ่าน: รูปถูกลบแล้ว กรุณาอัปโหลดรูปใหม่ตามหลักเกณฑ์"));
+    bx.appendChild(ul);
+    if (rj.msg) bx.appendChild(mk("div", "rmsg", "ข้อความจากทีมงาน: " + rj.msg));
+    var rn = mk("div", "rnote", "หมายเหตุ: กรุณาอ่านคุณสมบัติและกติกาอย่างละเอียด "); var rl = mk("a", null, "ไปที่กติกา"); rl.href = "#h-rules";
+    rl.addEventListener("click", function (e) { e.preventDefault(); var t = $("h-rules"); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth", block: "start" }); });
+    rn.appendChild(rl); bx.appendChild(rn);
+    if (rj.reasons.indexOf("surname") >= 0 && String(m.fullName || "").trim().split(/\s+/).length < 2) {
+      var fr = mk("div", "fixrow"), li = mk("input", "input"); li.placeholder = "นามสกุลใหม่"; li.setAttribute("aria-label", "นามสกุลใหม่"); li.autocomplete = "off";
+      var sv = mk("button", "btn sm", "บันทึกนามสกุล"); sv.type = "button";
+      var er = mk("div", "err");
+      sv.addEventListener("click", async function () {
+        var v = li.value.trim(); if (!v) { er.textContent = "กรอกนามสกุล"; return; }
+        sv.disabled = true; var r = await api("/api/fix", { method: "POST", json: { slug: m.slug, lastName: v } });
+        if (!r.ok) { sv.disabled = false; er.textContent = r.data.message || "บันทึกไม่สำเร็จ"; return; }
+        S.mineSig = ""; await poll();
+      });
+      fr.appendChild(li); fr.appendChild(sv); bx.appendChild(fr); bx.appendChild(er);
+    }
+    if (rj.reasons.indexOf("photo") >= 0 && !m.photoId) {
+      var lab = mk("label", "btn sm", "อัปโหลดรูป Portrait ใหม่"); lab.style.cursor = "pointer"; lab.style.alignSelf = "flex-start";
+      var inp = mk("input"); inp.type = "file"; inp.accept = "image/png,image/jpeg,image/webp"; inp.style.display = "none";
+      inp.addEventListener("change", function () { if (inp.files[0]) attachPhoto(m.slug, inp.files[0], lab); });
+      lab.appendChild(inp); bx.appendChild(lab);
+    }
+    return bx;
   }
   function payPanel(m) {
     var st = m.state === "approved" ? "approved" : "pending", p = mk("div", "pay"), h = mk("h4"); h.appendChild(document.createTextNode("สถานะ ")); h.appendChild(chip(st)); p.appendChild(h);
@@ -534,8 +566,9 @@
     if (!$("agree").checked) { $("e-agree").textContent = "กรุณาติ๊กรับทราบกติกาก่อน"; ok = false; first = first || $("agree"); }
     var u = normUser($("username").value);
     if (!/^@[A-Za-z0-9_.]{2,32}$/.test(u)) bad("f-user", "e-user", "กรอกชื่อผู้ใช้ในเกม เช่น @mali (ตัวอักษร ตัวเลข _ และ . เท่านั้น)");
-    var name = $("fullname").value.trim().replace(/\s+/g, " ");
-    if (name.length < 2) bad("f-name", "e-name", "กรอกชื่อและนามสกุลที่ใช้ประกวด");
+    var fn1 = $("firstname").value.trim(), ln1 = $("lastname").value.trim().replace(/\s+/g, " "), name = (fn1 + " " + ln1).trim();
+    if (!fn1 || !ln1) bad("f-name", "e-name", "กรอกทั้งชื่อและนามสกุลที่ใช้ประกวด");
+    else if (/\s/.test(fn1)) bad("f-name", "e-name", "ช่องชื่อใส่ได้คำเดียว ส่วนที่เหลือใส่ในช่องนามสกุล");
     var fe = checkFile(photoFile); if (fe) bad("f-photo", "e-photo", fe);
     var c = S.sel && BY_SLUG[S.sel];
     if (!c) { setStatus("เลือกพื้นที่ก่อน", true); ok = false; }
@@ -566,7 +599,7 @@
         showResult(m, r.data.error === "taken" ? "พื้นที่นี้ถูกจองไปแล้ว" : "จองไม่สำเร็จ", r.data.error === "taken" ? "มีคนกดยืนยันก่อนคุณเสี้ยววินาที เลือกพื้นที่อื่นที่ยังว่างได้เลย" : (r.data.message || "ลองกดยืนยันอีกครั้ง"), false);
         return;
       }
-      S.sel = null; photoFile = null; $("photo").value = ""; $("fullname").value = ""; updatePhotoUi(); setStatus("");
+      S.sel = null; photoFile = null; $("photo").value = ""; $("firstname").value = ""; $("lastname").value = ""; updatePhotoUi(); setStatus("");
       S.mineSig = ""; await poll(); renderDock();
       showResult(m, "ส่งใบสมัคร " + v.country.name + " แล้ว", "รอทีมงานตรวจและกดยืนยัน ชื่อจะขึ้นในทำเนียบหลังยืนยัน ถ้ายังไม่ได้แนบรูปโปรไฟล์ อัปโหลดได้ในใบสมัครของคุณ", true);
       setTimeout(function () { var s = $("mineSec"); if (s.scrollIntoView) s.scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
@@ -882,11 +915,13 @@
     info.appendChild(mk("div", "s", c.fullName + " · " + c.username));
     info.appendChild(mk("div", "s", "จองเมื่อ " + fmtDate(c.claimedAt)));
     if (false) info.appendChild(mk("div", "s", "สลิปส่งเมื่อ " + fmtDate(slip.uploadedAt) + (slip.amount ? " · แจ้งโอน " + baht(slip.amount) : "")));
-    if (st === "rejected" && c.note) info.appendChild(mk("div", "s", "เหตุผล: " + c.note));
-    var cw = mk("div"); cw.style.marginTop = "4px"; cw.appendChild(chip(st === "approved" ? "approved" : "pending")); info.appendChild(cw); r.appendChild(info);
+    if (c.reject) info.appendChild(mk("div", "s", "ไม่ผ่าน: " + c.reject.reasons.map(function (x) { return x === "surname" ? "ใช้สังกัดบ้านเป็นนามสกุล" : "รูป Portrait"; }).join(" · ") + (c.reject.msg ? " — " + c.reject.msg : "")));
+    else if (st === "rejected" && c.note) info.appendChild(mk("div", "s", "เหตุผล: " + c.note));
+    var cw = mk("div"); cw.style.marginTop = "4px"; cw.appendChild(chip(c.reject ? "rejected" : (st === "approved" ? "approved" : "pending"), c.reject)); info.appendChild(cw); r.appendChild(info);
     var acts = mk("div", "acts");
     function act(label, cls, fn) { var b = mk("button", "btn sm " + cls, label); b.type = "button"; b.addEventListener("click", fn); acts.appendChild(b); }
     if (st !== "approved") act("ยืนยัน ขึ้นทำเนียบ", "ok", function () { review(c, "approved", ""); });
+    if (c.slip && !c.reject) act("ไม่ผ่าน", "warn", function () { openReject([c]); });
     if (c.photoId) act("บันทึกรูป", "ghost", function () { savePhoto(c); });
     act("ปล่อยพื้นที่", "warn", function () { openRelease(c); });
     r.appendChild(acts); return r;
@@ -899,6 +934,10 @@
     var all = $("aSelAll"); all.checked = tot > 0 && n === tot; all.indeterminate = n > 0 && n < tot;
     $("aSelTxt").textContent = n ? "เลือกแล้ว " + n + " จาก " + tot + " รายการ" : "เลือกทั้งหมด (" + tot + ")";
     var b = $("aRelSel"); b.disabled = !n; b.textContent = n ? "ปล่อยที่เลือก (" + n + ")" : "ปล่อยที่เลือก";
+    var pk = bulkPicked(), ap = pk.filter(function (c) { return c.slip && c.state !== "approved"; }).length, sl = pk.filter(function (c) { return c.slip; }).length, ph = pk.filter(function (c) { return c.photoId; }).length;
+    $("aApprSel").disabled = !ap; $("aApprSel").textContent = ap ? "อนุมัติที่เลือก (" + ap + ")" : "อนุมัติที่เลือก";
+    $("aRejSel").disabled = !sl; $("aRejSel").textContent = sl ? "ไม่ผ่านที่เลือก (" + sl + ")" : "ไม่ผ่านที่เลือก";
+    if (!$("aSaveSel").getAttribute("data-busy")) { $("aSaveSel").disabled = !ph; $("aSaveSel").textContent = ph ? "บันทึกรูปที่เลือก (" + ph + ")" : "บันทึกรูปที่เลือก"; }
   }
   function bulkSelectAll(on) {
     S.aVis.forEach(function (c) { if (on) S.aSel[c.slug] = true; else delete S.aSel[c.slug]; });
@@ -932,17 +971,69 @@
     return r;
   }
   async function review(c, status, note) { var r = await adminCall("/api/admin/review", { slug: c.slug, status: status, note: note }); if (r.ok) await poll(); }
-  function openReject(c) {
+  function openReject(list) {
+    list = list.filter(function (c) { return c.slip; }); if (!list.length) { setStatus("รายการที่เลือกยังไม่มีสลิป ตรวจไม่ได้", true); return; }
     modal(function (m) {
-      m.appendChild(mk("h3", null, "สลิปไม่ผ่าน: " + c.country));
-      var f = mk("div", "field"), l = mk("label", null, "เหตุผล (ผู้สมัครจะเห็น)"); l.htmlFor = "rejNote";
+      m.appendChild(mk("h3", null, list.length === 1 ? "ไม่ผ่าน: " + list[0].country : "ไม่ผ่าน " + list.length + " รายการ"));
+      m.appendChild(mk("div", "s", "เลือกเหตุผล (ติ๊กได้ทั้งสองข้อ) ผู้สมัครจะเห็นเหตุผลและต้องแก้ไขเอง"));
+      var boxes = {};
+      [["surname", "ใช้สังกัดบ้านเป็นนามสกุล", "ลบนามสกุลออก ให้ผู้สมัครกรอกใหม่"], ["photo", "รูป Portrait ไม่ผ่าน", "ลบรูปออก รอผู้สมัครอัปโหลดใหม่"]].forEach(function (x) {
+        var lb = mk("label", "check"), cb = mk("input"); cb.type = "checkbox"; boxes[x[0]] = cb; lb.appendChild(cb);
+        var sp = mk("span"); sp.appendChild(mk("b", null, x[1])); sp.appendChild(document.createTextNode(" · " + x[2])); lb.appendChild(sp); lb.style.margin = "8px 0"; m.appendChild(lb);
+      });
+      var f = mk("div", "field"), l = mk("label", null, "ข้อความจากทีมงาน (ไม่บังคับ ผู้สมัครจะเห็น)"); l.htmlFor = "rejNote";
       var t = mk("textarea", "input"); t.id = "rejNote"; t.placeholder = "เช่น ยอดโอนไม่ครบ หรือสลิปไม่ชัด"; f.appendChild(l); f.appendChild(t); m.appendChild(f);
+      var er = mk("div", "err"); m.appendChild(er);
       var row = mk("div", "row"); row.style.justifyContent = "flex-end";
       var cancel = mk("button", "btn ghost", "ยกเลิก"); cancel.type = "button"; cancel.addEventListener("click", closeModal);
       var go = mk("button", "btn", "ยืนยันไม่ผ่าน"); go.type = "button";
-      go.addEventListener("click", async function () { go.disabled = true; await review(c, "rejected", t.value.trim()); closeModal(); });
+      go.addEventListener("click", async function () {
+        var reasons = Object.keys(boxes).filter(function (k) { return boxes[k].checked; });
+        if (!reasons.length && !t.value.trim()) { er.textContent = "ติ๊กเหตุผลหรือพิมพ์ข้อความอย่างน้อยหนึ่งอย่าง"; return; }
+        go.disabled = true;
+        var r = await adminCall("/api/admin/review", { slugs: list.map(function (c) { return c.slug; }), status: "rejected", reasons: reasons, note: t.value.trim() });
+        closeModal();
+        if (r.ok) { list.forEach(function (c) { delete S.aSel[c.slug]; }); setStatus("ตีกลับแล้ว " + r.data.done + " รายการ"); await poll(); }
+      });
       row.appendChild(cancel); row.appendChild(go); m.appendChild(row);
     });
+  }
+  function openApproveMany() {
+    var picked = bulkPicked(), ok = picked.filter(function (c) { return c.slip && c.state !== "approved"; });
+    if (!ok.length) { setStatus("ไม่มีรายการที่อนุมัติได้ (ต้องมีสลิปและยังไม่อนุมัติ)", true); return; }
+    modal(function (m) {
+      m.appendChild(mk("h3", null, "อนุมัติ " + ok.length + " รายการ?"));
+      var ul = mk("div", "s"); ul.style.maxHeight = "180px"; ul.style.overflowY = "auto"; ul.style.margin = "8px 0";
+      ok.forEach(function (c) { ul.appendChild(mk("div", null, "• " + c.country + " · " + (c.fullName || "") + (c.username ? " (" + c.username + ")" : ""))); });
+      m.appendChild(ul);
+      if (picked.length > ok.length) m.appendChild(mk("div", "hint", "ข้าม " + (picked.length - ok.length) + " รายการ (ไม่มีสลิปหรืออนุมัติแล้ว)"));
+      var row = mk("div", "row"); row.style.justifyContent = "flex-end";
+      var cancel = mk("button", "btn ghost", "ยกเลิก"); cancel.type = "button"; cancel.addEventListener("click", closeModal);
+      var go = mk("button", "btn", "อนุมัติ " + ok.length + " รายการ"); go.type = "button";
+      go.addEventListener("click", async function () {
+        go.disabled = true;
+        var r = await adminCall("/api/admin/review", { slugs: ok.map(function (c) { return c.slug; }), status: "approved" }); closeModal();
+        if (r.ok) { ok.forEach(function (c) { delete S.aSel[c.slug]; }); setStatus("อนุมัติแล้ว " + r.data.done + " รายการ"); await poll(); }
+      });
+      row.appendChild(cancel); row.appendChild(go); m.appendChild(row);
+    });
+  }
+  async function savePickedPhotos(btn) {
+    var list = bulkPicked().filter(function (c) { return c.photoId; });
+    if (!list.length) { setStatus("รายการที่เลือกไม่มีรูป", true); return; }
+    if (list.length === 1) { await savePhoto(list[0]); return; }
+    if (!window.JSZip) { setStatus("โหลดตัวสร้าง ZIP ไม่สำเร็จ ลองโหลดหน้าใหม่", true); return; }
+    var label = btn.textContent; btn.disabled = true;
+    try {
+      var zip = new window.JSZip(), used = {}, fail = 0;
+      for (var i = 0; i < list.length; i++) {
+        btn.textContent = "กำลังรวมรูป " + (i + 1) + "/" + list.length;
+        try { var b = await photoBlob(list[i].photoId), n = photoFilename(list[i], b); if (used[n]) n = n.replace(/(\.[a-z]+)$/, "_" + list[i].slug + "$1"); used[n] = 1; zip.file(n, b); } catch (e) { fail++; }
+      }
+      saveBlob("photos-selected.zip", await zip.generateAsync({ type: "blob" }));
+      setStatus(fail ? "รวมรูปไม่ได้ " + fail + " รูป ที่เหลืออยู่ในไฟล์ ZIP แล้ว" : "", !!fail);
+    } catch (e) { setStatus("สร้าง ZIP ไม่สำเร็จ", true); }
+    btn.disabled = false; btn.textContent = label; bulkSync();
   }
   function openRelease(c) {
     modal(function (m) {
@@ -1149,6 +1240,9 @@
   $("aQ").addEventListener("input", function (e) { S.aQ = e.target.value; renderAdmin(); });
   $("aSelAll").addEventListener("change", function (e) { bulkSelectAll(e.target.checked); });
   $("aRelSel").addEventListener("click", openReleaseMany);
+  $("aApprSel").addEventListener("click", openApproveMany);
+  $("aRejSel").addEventListener("click", function () { openReject(bulkPicked()); });
+  $("aSaveSel").addEventListener("click", function (e) { savePickedPhotos(e.currentTarget); });
   $("photo").addEventListener("change", function (e) { photoFile = e.target.files[0] || null; updatePhotoUi(); setErr("f-photo", "e-photo", ""); });
   $("username").addEventListener("blur", function (e) { e.target.value = normUser(e.target.value); });
   $("goBtn").addEventListener("click", function () { setStatus(""); var v = validate(); if (v) openConfirm(v); });
