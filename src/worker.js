@@ -381,6 +381,32 @@ async function adminRelease(req, env) {
   return json({ ok: true });
 }
 
+async function adminReleaseMany(req, env) {
+  const b = await req.json();
+  if (!Array.isArray(b.slugs) || !b.slugs.length || b.slugs.length > 300) return fail(400, "bad_request", "ข้อมูลไม่ถูกต้อง");
+  const slugs = [...new Set(b.slugs)].filter((s) => typeof s === "string");
+  if (!slugs.length) return fail(400, "bad_request", "ข้อมูลไม่ถูกต้อง");
+  const qs = (n) => Array(n).fill("?").join(",");
+  for (let i = 0; i < slugs.length; i += 40) {
+    const part = slugs.slice(i, i + 40);
+    const cs = await env.DB.prepare("SELECT photo_id FROM countries WHERE slug IN (" + qs(part.length) + ")").bind(...part).all();
+    const ss = await env.DB.prepare("SELECT image_id FROM slips WHERE slug IN (" + qs(part.length) + ")").bind(...part).all();
+    const ids = [...(cs.results || []).map((r) => r.photo_id), ...(ss.results || []).map((r) => r.image_id)].filter(Boolean);
+    const stmts = [
+      env.DB.prepare("DELETE FROM reviews WHERE slug IN (" + qs(part.length) + ")").bind(...part),
+      env.DB.prepare("DELETE FROM slips WHERE slug IN (" + qs(part.length) + ")").bind(...part),
+      env.DB.prepare("DELETE FROM countries WHERE slug IN (" + qs(part.length) + ")").bind(...part),
+    ];
+    if (ids.length) {
+      stmts.push(env.DB.prepare("DELETE FROM image_chunks WHERE image_id IN (" + qs(ids.length) + ")").bind(...ids));
+      stmts.push(env.DB.prepare("DELETE FROM images WHERE id IN (" + qs(ids.length) + ")").bind(...ids));
+    }
+    await env.DB.batch(stmts);
+  }
+  memo = null;
+  return json({ ok: true, released: slugs.length });
+}
+
 async function adminSettings(req, env) {
   const b = await req.json();
   const num = (v) => (v === null || v === "" || v === undefined ? null : Number.isFinite(Number(v)) ? Number(v) : null);
@@ -535,6 +561,7 @@ export default {
         if (p === "/api/admin/regions" && post) return await adminRegions(req, env);
         if (p === "/api/admin/review" && post) return await adminReview(req, env);
         if (p === "/api/admin/release" && post) return await adminRelease(req, env);
+        if (p === "/api/admin/release-many" && post) return await adminReleaseMany(req, env);
         if (p === "/api/admin/settings" && post) return await adminSettings(req, env);
         if (p === "/api/admin/content" && post) return await adminContent(req, env);
         if (p === "/api/admin/image" && post) return await adminImage(req, env);
