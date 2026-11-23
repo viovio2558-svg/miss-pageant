@@ -435,6 +435,7 @@ async function adminContent(req, env) {
   if (b.info && typeof b.info === "object") {
     const s = (v, n) => String(v || "").trim().slice(0, n);
     out.info = {
+      links: Array.isArray(b.info.links) ? b.info.links.slice(0, 10).map((r) => ({ label: s(r && r.label, 40), url: cleanUrl(r && r.url), live: !!(r && r.live) })).filter((r) => r.url) : undefined,
       formatTitle: s(b.info.formatTitle, 80),
       format: (Array.isArray(b.info.format) ? b.info.format : []).slice(0, 14).map((r) => {
         const podium = r && r.kind === "podium";
@@ -504,7 +505,20 @@ export default {
     const p = url.pathname;
     try {
       if (p.startsWith("/img/")) return await serveImage(req, env, p.slice(5));
-      if (!p.startsWith("/api/")) return env.ASSETS.fetch(req);
+      if (!p.startsWith("/api/")) {
+        const res = await env.ASSETS.fetch(req);
+        const isHtml = (res.headers.get("content-type") || "").includes("text/html");
+        if (!isHtml || typeof HTMLRewriter === "undefined") return res;
+        let name = DEFAULT_EVENT_NAME;
+        try { name = String(((await kvGet(env, "settings", {})) || {}).eventName || "").trim() || DEFAULT_EVENT_NAME; } catch (e) {}
+        const esc = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const out = new Response(res.body, res);
+        out.headers.set("cache-control", "no-cache");
+        return new HTMLRewriter()
+          .on("title", { element(e) { e.setInnerContent(name); } })
+          .on("head", { element(e) { e.append(`<meta property="og:title" content="${esc}"><meta property="og:site_name" content="${esc}"><meta name="twitter:title" content="${esc}">`, { html: true }); } })
+          .transform(out);
+      }
       const ip = req.headers.get("cf-connecting-ip") || "local";
       const post = req.method === "POST";
 
