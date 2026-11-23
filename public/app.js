@@ -759,7 +759,7 @@
       c.appendChild(row); list.appendChild(c);
     });
     wrap.appendChild(list);
-    var ar = mk("div", "row"); ar.style.marginTop = "10px"; ar.appendChild(moveBtn("+ เพิ่มลิงก์", function () { saveInfo(function (x) { x.links.push({ label: "ลิงก์ใหม่", url: "https://", live: false }); }); })); wrap.appendChild(ar);
+    var ar = mk("div", "row"); ar.style.marginTop = "10px"; ar.appendChild(moveBtn("+ เพิ่มลิงก์", function () { saveInfo(function (x) { x.links.push({ label: "ลิงก์ใหม่", url: "", live: false }); }); })); wrap.appendChild(ar);
     host.appendChild(wrap);
   }
   function guideEditor(host) {
