@@ -54,5 +54,6 @@ CREATE TABLE IF NOT EXISTS coadmins (
   name       TEXT NOT NULL,
   salt       TEXT NOT NULL,
   hash       TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  perms      TEXT NOT NULL DEFAULT ''   -- สิทธิ์ที่ติ๊กให้ คั่นด้วย , (list,media,review,release,settings,content) ว่าง = เข้าหน้าแอดมินไม่ได้
 );
