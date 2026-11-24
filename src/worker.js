@@ -134,7 +134,7 @@ function stateOf(c, slip, rv) {
   return "pending";
 }
 function pubClaim(r) {
-  return { slug: r.slug, country: r.country, continent: r.continent, username: r.username, fullName: r.full_name, photoId: r.photo_id, claimedAt: r.claimed_at };
+  return { slug: r.slug, country: r.country, continent: r.continent, fullName: r.full_name, photoId: r.photo_id, claimedAt: r.claimed_at };
 }
 
 /* ---------- public state (cached 2s) ---------- */
@@ -169,6 +169,7 @@ async function myClaims(env, owner) {
       const rv = c.r_status ? { status: c.r_status, note: c.r_note, at: c.r_at } : null;
       return {
         ...pubClaim(c),
+        username: c.username,
         expiresAt: c.expires_at,
         slipAt: c.slip_at,
         state: stateOf(c, slip, rv),
@@ -380,6 +381,7 @@ async function adminList(env) {
       const rv = c.r_status ? { status: c.r_status, note: c.r_note, at: c.r_at } : null;
       return {
         ...pubClaim(c),
+        username: c.username,
         expiresAt: c.expires_at,
         slipAt: c.slip_at,
         state: stateOf(c, slip, rv),
