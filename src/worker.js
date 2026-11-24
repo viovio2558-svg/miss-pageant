@@ -123,7 +123,7 @@ function schedule(s, t) {
   return true;
 }
 function parseRej(note) {
-  try { const o = JSON.parse(note); if (o && Array.isArray(o.r)) return { reasons: o.r.filter((x) => x === "surname" || x === "photo"), msg: String(o.m || "") }; } catch { /* plain text */ }
+  try { const o = JSON.parse(note); if (o && Array.isArray(o.r)) return { reasons: o.r.filter((x) => x === "surname" || x === "photo" || x === "realname"), msg: String(o.m || "") }; } catch { /* plain text */ }
   return null;
 }
 function firstTok(n) { return String(n || "").trim().split(/\s+/)[0] || ""; }
@@ -184,8 +184,9 @@ async function myClaims(env, owner) {
 async function apiState(req, env) {
   const pub = await publicState(env);
   const owner = ownerOf(req);
-  const [me, admin] = await Promise.all([myClaims(env, owner), isAdmin(req, env)]);
-  return json({ now: now(), ...pub, me, admin });
+  const [me, staff] = await Promise.all([myClaims(env, owner), staffOf(req, env)]);
+  const admin = hasAdminAccess(staff);
+  return json({ now: now(), ...pub, me, admin, role: admin ? staff.role : "", perms: admin ? staff.perms : [], staffName: admin ? staff.name : "" });
 }
 
 async function apiClaim(req, env, ip) {
@@ -276,7 +277,8 @@ async function resolveReject(env, slug) {
   if (!rj || !rj.reasons.length) return false;
   const needS = rj.reasons.includes("surname") && String(r.full_name || "").trim().split(/\s+/).length < 2;
   const needP = rj.reasons.includes("photo") && !r.photo_id;
-  if (needS || needP) return false;
+  const needN = rj.reasons.includes("realname") && !String(r.full_name || "").trim();
+  if (needS || needP || needN) return false;
   await env.DB.prepare("DELETE FROM reviews WHERE slug = ?").bind(slug).run();
   return true;
 }
@@ -290,7 +292,18 @@ async function apiFix(req, env) {
   if (!c) return fail(410, "gone", "ประเทศนี้ไม่ได้อยู่กับคุณแล้ว");
   const rv = await env.DB.prepare("SELECT status, note FROM reviews WHERE slug = ?").bind(slug).first();
   const rj = rv && rv.status === "rejected" ? parseRej(rv.note) : null;
-  if (!rj || !rj.reasons.includes("surname")) return fail(409, "not_rejected", "ไม่มีรายการที่ต้องแก้ไข");
+  if (!rj || !(rj.reasons.includes("surname") || rj.reasons.includes("realname"))) return fail(409, "not_rejected", "ไม่มีรายการที่ต้องแก้ไข");
+  if (b.fullName !== undefined) {
+    if (!rj.reasons.includes("realname")) return fail(409, "not_rejected", "ไม่มีรายการที่ต้องแก้ไข");
+    const full = String(b.fullName || "").trim().replace(/\s+/g, " ");
+    if (full.length < 3 || full.length > 60 || !/\s/.test(full)) return fail(400, "bad_name", "กรอกทั้งชื่อและนามสกุล");
+    await env.DB.prepare("UPDATE countries SET full_name = ? WHERE slug = ? AND owner = ?").bind(full, slug, owner).run();
+    await resolveReject(env, slug);
+    memo = null;
+    return json({ ok: true });
+  }
+  if (rj.reasons.includes("realname") && !String(c.full_name || "").trim()) return fail(409, "need_fullname", "กรุณากรอกชื่อและนามสกุลใหม่");
+  if (!rj.reasons.includes("surname")) return fail(409, "not_rejected", "ไม่มีรายการที่ต้องแก้ไข");
   const last = String(b.lastName || "").trim().replace(/\s+/g, " ");
   if (last.length < 1 || last.length > 40) return fail(400, "bad_name", "ชื่อและนามสกุลไม่ถูกต้อง");
   await env.DB.prepare("UPDATE countries SET full_name = ? WHERE slug = ? AND owner = ?").bind(firstTok(c.full_name) + " " + last, slug, owner).run();
@@ -332,7 +345,7 @@ async function serveImage(req, env, id) {
   if (!r) return new Response("not found", { status: 404 });
   let cache = "public, max-age=31536000, immutable";
   if (r.kind === "slip") {
-    let ok = await isAdmin(req, env);
+    let ok = can(await staffOf(req, env), "media"); // แอดมินหลัก หรือ co-admin ที่ได้สิทธิ์ดูสลิป
     if (!ok) {
       const owner = ownerOf(req);
       const q = owner && (await env.DB.prepare("SELECT 1 AS x FROM slips s JOIN countries c ON c.slug = s.slug WHERE s.image_id = ? AND c.owner = ?").bind(id, owner).first());
@@ -369,8 +382,9 @@ async function adminLogin(req, env) {
   return json({ ok: true }, 200, { "set-cookie": `mm_admin=${exp}.${sig}; Path=/; Max-Age=${12 * 3600}; HttpOnly; Secure; SameSite=Strict` });
 }
 
-async function adminList(env) {
+async function adminList(env, staff) {
   const t = now();
+  const media = can(staff, "media"); // ไม่มีสิทธิ์ดูรูป/สลิป: ไม่ส่งรหัสรูปไปให้เลย (รหัสรูปเดาไม่ได้ จึงเปิดดูไม่ได้)
   const rows = await env.DB.prepare(
     "SELECT c.*, s.image_id AS s_img, s.amount AS s_amount, s.uploaded_at AS s_at, r.status AS r_status, r.note AS r_note, r.at AS r_at FROM countries c LEFT JOIN slips s ON s.slug = c.slug LEFT JOIN reviews r ON r.slug = c.slug ORDER BY c.claimed_at"
   ).all();
@@ -379,7 +393,7 @@ async function adminList(env) {
     .map((c) => {
       const slip = c.s_img ? { image_id: c.s_img, amount: c.s_amount, uploaded_at: c.s_at } : null;
       const rv = c.r_status ? { status: c.r_status, note: c.r_note, at: c.r_at } : null;
-      return {
+      const row = {
         ...pubClaim(c),
         username: c.username,
         expiresAt: c.expires_at,
@@ -389,6 +403,12 @@ async function adminList(env) {
         reject: rv && rv.status === "rejected" ? parseRej(rv.note) || { reasons: [], msg: rv.note || "" } : null,
         slip: slip ? { imageId: slip.image_id, amount: slip.amount, uploadedAt: slip.uploaded_at } : null,
       };
+      if (!media) {
+        row.hasPhoto = !!row.photoId;
+        row.photoId = null;
+        if (row.slip) row.slip.imageId = null;
+      }
+      return row;
     });
   return json({ list });
 }
@@ -404,6 +424,7 @@ async function reviewOne(env, slug, status, reasons, msg) {
     const c = await env.DB.prepare("SELECT photo_id, full_name FROM countries WHERE slug = ?").bind(slug).first();
     if (c) {
       if (reasons.includes("surname")) stmts.push(env.DB.prepare("UPDATE countries SET full_name = ? WHERE slug = ?").bind(firstTok(c.full_name), slug));
+      if (reasons.includes("realname")) stmts.push(env.DB.prepare("UPDATE countries SET full_name = ? WHERE slug = ?").bind("", slug));
       if (reasons.includes("photo")) {
         stmts.push(env.DB.prepare("UPDATE countries SET photo_id = NULL WHERE slug = ?").bind(slug));
         stmts.push(...deleteImageStmts(env, c.photo_id));
@@ -420,7 +441,7 @@ async function adminReview(req, env) {
   const status = b.status === "approved" ? "approved" : b.status === "rejected" ? "rejected" : "";
   const slugs = Array.isArray(b.slugs) ? [...new Set(b.slugs)].slice(0, 300) : [b.slug];
   if (!status || !slugs.length) return fail(400, "bad_request", "ข้อมูลไม่ถูกต้อง");
-  const reasons = (Array.isArray(b.reasons) ? b.reasons : []).filter((x) => x === "surname" || x === "photo");
+  const reasons = (Array.isArray(b.reasons) ? b.reasons : []).filter((x) => x === "surname" || x === "photo" || x === "realname");
   let done = 0, skipped = 0;
   for (const slug of slugs) {
     const r = await reviewOne(env, slug, status, reasons, b.note);
@@ -593,6 +614,117 @@ async function adminRegions(req, env) {
   return json({ ok: true, regions: out });
 }
 
+/* ---------- co-admin (สิทธิ์ตามที่แอดมินหลักติ๊กให้ ไม่ติ๊ก = เข้าหน้าแอดมินไม่ได้) ---------- */
+// สิทธิ์ที่ติ๊กให้ได้ (settings รวมการแก้รายชื่อพื้นที่)
+const PERMS = ["list", "media", "review", "release", "settings", "content"];
+// สิทธิ์ที่ต้องมีสิทธิ์อื่นร่วมด้วย เช่น ตรวจผู้สมัครต้องเห็นรายชื่อและสลิปได้
+const PERM_NEEDS = { media: ["list"], review: ["list", "media"], release: ["list"] };
+function normPerms(v) {
+  const raw = Array.isArray(v) ? v : String(v || "").split(",");
+  const set = new Set(raw.map((x) => String(x).trim()).filter((x) => PERMS.includes(x)));
+  for (const p of [...set]) for (const n of PERM_NEEDS[p] || []) set.add(n);
+  return PERMS.filter((p) => set.has(p));
+}
+let coReady = false;
+async function ensureCo(env) {
+  if (coReady) return;
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS coadmins (id TEXT PRIMARY KEY, name TEXT NOT NULL, salt TEXT NOT NULL, hash TEXT NOT NULL, created_at INTEGER NOT NULL, perms TEXT NOT NULL DEFAULT '')").run();
+  // ฐานข้อมูลเดิมยังไม่มีคอลัมน์ perms: เพิ่มให้อัตโนมัติ perms ว่าง = ไม่มีสิทธิ์ใด ๆ
+  try { await env.DB.prepare("ALTER TABLE coadmins ADD COLUMN perms TEXT NOT NULL DEFAULT ''").run(); } catch { /* มีคอลัมน์อยู่แล้ว */ }
+  coReady = true;
+}
+const PBKDF2_ITER = 100000;
+async function pwHash(password, saltHex) {
+  const salt = new Uint8Array(saltHex.match(/../g).map((h) => parseInt(h, 16)));
+  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  return hex(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITER }, key, 256));
+}
+function newSalt() { return hex(crypto.getRandomValues(new Uint8Array(16))); }
+async function coUser(req, env) {
+  const s = secret(env);
+  if (!s) return null;
+  const [exp, id, sig] = getCookie(req, "mm_co").split(".");
+  if (!exp || !id || !sig || Number(exp) < now() || !ID_RE.test(id)) return null;
+  if (!safeEq(sig, await hmac(s, "co." + exp + "." + id))) return null;
+  await ensureCo(env);
+  // อ่านสิทธิ์จากฐานข้อมูลทุกครั้ง: แก้สิทธิ์หรือลบ co-admin แล้วมีผลทันที
+  const r = await env.DB.prepare("SELECT id, name, perms FROM coadmins WHERE id = ?").bind(id).first();
+  return r ? { id: r.id, name: r.name, perms: normPerms(r.perms) } : null;
+}
+// ผู้ใช้หน้าแอดมิน: แอดมินหลักได้ทุกสิทธิ์ ส่วน co-admin ได้ตามที่ติ๊กให้
+async function staffOf(req, env) {
+  if (await isAdmin(req, env)) return { role: "admin", name: "แอดมิน", perms: PERMS.slice() };
+  const c = await coUser(req, env);
+  return c ? { role: "co", name: c.name, perms: c.perms } : null;
+}
+const can = (staff, perm) => !!staff && staff.perms.includes(perm);
+// ต้องมีอย่างน้อย 1 สิทธิ์จึงจะนับว่าเข้าหน้าแอดมินได้
+const hasAdminAccess = (staff) => !!staff && staff.perms.length > 0;
+async function coLogin(req, env) {
+  const s = secret(env);
+  if (!s) return fail(500, "no_secret", "ยังไม่ได้ตั้ง ADMIN_PASSWORD ใน Cloudflare");
+  await ensureCo(env);
+  let b = {};
+  try { b = await req.json(); } catch {}
+  const name = String(b.name || "").trim().toLowerCase();
+  const password = String(b.password || "");
+  const rows = (await env.DB.prepare("SELECT * FROM coadmins").all()).results || [];
+  const row = rows.find((r) => r.name.toLowerCase() === name);
+  // คำนวณแฮชเสมอ เพื่อไม่ให้เวลาตอบสนองบอกได้ว่าชื่อนี้มีอยู่หรือไม่
+  const h = await pwHash(password, row ? row.salt : "00".repeat(16));
+  if (!row || !safeEq(h, row.hash)) {
+    await new Promise((r) => setTimeout(r, 600));
+    return fail(401, "bad_login", "ชื่อหรือรหัสผ่านไม่ถูกต้อง");
+  }
+  const exp = now() + 12 * 3600 * 1000;
+  const sig = await hmac(s, "co." + exp + "." + row.id);
+  return json({ ok: true, name: row.name, perms: normPerms(row.perms) }, 200, { "set-cookie": `mm_co=${exp}.${row.id}.${sig}; Path=/; Max-Age=${12 * 3600}; HttpOnly; Secure; SameSite=Strict` });
+}
+const cleanName = (v) => String(v || "").trim().replace(/\s+/g, " ").slice(0, 30);
+async function adminCoList(env) {
+  await ensureCo(env);
+  const r = await env.DB.prepare("SELECT id, name, created_at, perms FROM coadmins ORDER BY created_at").all();
+  return json({ list: r.results.map((x) => ({ id: x.id, name: x.name, createdAt: x.created_at, perms: normPerms(x.perms) })) });
+}
+async function adminCoAdd(req, env) {
+  await ensureCo(env);
+  const b = await req.json();
+  const name = cleanName(b.name), password = String(b.password || "");
+  if (name.length < 2) return fail(400, "bad_name", "ชื่อต้องยาวอย่างน้อย 2 ตัวอักษร");
+  if (password.length < 8 || password.length > 100) return fail(400, "bad_password", "รหัสผ่านต้องยาว 8 ตัวอักษรขึ้นไป");
+  const all = (await env.DB.prepare("SELECT name FROM coadmins").all()).results || [];
+  if (all.length >= 20) return fail(400, "too_many", "เพิ่ม co-admin ได้ไม่เกิน 20 คน");
+  if (all.some((r) => r.name.toLowerCase() === name.toLowerCase())) return fail(409, "dup", "มีชื่อนี้อยู่แล้ว");
+  const salt = newSalt();
+  await env.DB.prepare("INSERT INTO coadmins (id, name, salt, hash, created_at, perms) VALUES (?, ?, ?, ?, ?, ?)").bind(randId(), name, salt, await pwHash(password, salt), now(), normPerms(b.perms).join(",")).run();
+  return json({ ok: true });
+}
+async function adminCoPerms(req, env) {
+  await ensureCo(env);
+  const b = await req.json();
+  if (!ID_RE.test(String(b.id))) return fail(400, "bad_id", "ไม่พบผู้ใช้");
+  const perms = normPerms(b.perms);
+  const r = await env.DB.prepare("UPDATE coadmins SET perms = ? WHERE id = ?").bind(perms.join(","), b.id).run();
+  return r.meta && r.meta.changes === 0 ? fail(404, "nf", "ไม่พบผู้ใช้") : json({ ok: true, perms });
+}
+async function adminCoPasswd(req, env) {
+  await ensureCo(env);
+  const b = await req.json();
+  const password = String(b.password || "");
+  if (!ID_RE.test(String(b.id))) return fail(400, "bad_id", "ไม่พบผู้ใช้");
+  if (password.length < 8 || password.length > 100) return fail(400, "bad_password", "รหัสผ่านต้องยาว 8 ตัวอักษรขึ้นไป");
+  const salt = newSalt();
+  const r = await env.DB.prepare("UPDATE coadmins SET salt = ?, hash = ? WHERE id = ?").bind(salt, await pwHash(password, salt), b.id).run();
+  return r.meta && r.meta.changes === 0 ? fail(404, "nf", "ไม่พบผู้ใช้") : json({ ok: true });
+}
+async function adminCoDelete(req, env) {
+  await ensureCo(env);
+  const b = await req.json();
+  if (ID_RE.test(String(b.id))) await env.DB.prepare("DELETE FROM coadmins WHERE id = ?").bind(b.id).run();
+  return json({ ok: true });
+}
+
+
 /* ---------- router ---------- */
 export default {
   async fetch(req, env) {
@@ -622,20 +754,47 @@ export default {
       if (p === "/api/photo" && post) return await apiPhoto(req, env);
       if (p === "/api/slip" && post) return await apiSlip(req, env);
       if (p === "/api/fix" && post) return await apiFix(req, env);
+      if (p === "/api/co/login" && post) return await coLogin(req, env);
+      if (p === "/api/co/logout" && post) return json({ ok: true }, 200, { "set-cookie": "mm_co=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict" });
       if (p === "/api/admin/login" && post) return await adminLogin(req, env);
       if (p === "/api/admin/logout" && post) return json({ ok: true }, 200, { "set-cookie": "mm_admin=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict" });
 
       if (p.startsWith("/api/admin/")) {
-        if (!(await isAdmin(req, env))) return fail(401, "unauthorized", "ต้องเข้าสู่ระบบแอดมิน");
-        if (p === "/api/admin/list" && req.method === "GET") return await adminList(env);
-        if (p === "/api/admin/regions" && post) return await adminRegions(req, env);
-        if (p === "/api/admin/review" && post) return await adminReview(req, env);
-        if (p === "/api/admin/release" && post) return await adminRelease(req, env);
-        if (p === "/api/admin/release-many" && post) return await adminReleaseMany(req, env);
-        if (p === "/api/admin/settings" && post) return await adminSettings(req, env);
-        if (p === "/api/admin/content" && post) return await adminContent(req, env);
-        if (p === "/api/admin/image" && post) return await adminImage(req, env);
-        if (p === "/api/admin/image-delete" && post) return await adminImageDelete(req, env);
+        const staff = await staffOf(req, env);
+        if (!hasAdminAccess(staff)) return fail(401, "unauthorized", "ต้องเข้าสู่ระบบแอดมิน");
+        // แต่ละเส้นทางระบุสิทธิ์ที่ต้องมี: "main" = เฉพาะแอดมินหลัก (จัดการ co-admin)
+        const need = {
+          "GET /api/admin/list": "list",
+          "GET /api/admin/coadmins": "main",
+          "POST /api/admin/coadmin-add": "main",
+          "POST /api/admin/coadmin-perms": "main",
+          "POST /api/admin/coadmin-passwd": "main",
+          "POST /api/admin/coadmin-delete": "main",
+          "POST /api/admin/review": "review",
+          "POST /api/admin/release": "release",
+          "POST /api/admin/release-many": "release",
+          "POST /api/admin/regions": "settings",
+          "POST /api/admin/settings": "settings",
+          "POST /api/admin/content": "content",
+          "POST /api/admin/image": "content",
+          "POST /api/admin/image-delete": "content",
+        }[req.method + " " + p];
+        if (!need) return fail(404, "not_found", "ไม่พบ");
+        if (need === "main" ? staff.role !== "admin" : !can(staff, need)) return fail(403, "forbidden", "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
+        if (p === "/api/admin/list") return await adminList(env, staff);
+        if (p === "/api/admin/coadmins") return await adminCoList(env);
+        if (p === "/api/admin/coadmin-add") return await adminCoAdd(req, env);
+        if (p === "/api/admin/coadmin-perms") return await adminCoPerms(req, env);
+        if (p === "/api/admin/coadmin-passwd") return await adminCoPasswd(req, env);
+        if (p === "/api/admin/coadmin-delete") return await adminCoDelete(req, env);
+        if (p === "/api/admin/regions") return await adminRegions(req, env);
+        if (p === "/api/admin/review") return await adminReview(req, env);
+        if (p === "/api/admin/release") return await adminRelease(req, env);
+        if (p === "/api/admin/release-many") return await adminReleaseMany(req, env);
+        if (p === "/api/admin/settings") return await adminSettings(req, env);
+        if (p === "/api/admin/content") return await adminContent(req, env);
+        if (p === "/api/admin/image") return await adminImage(req, env);
+        if (p === "/api/admin/image-delete") return await adminImageDelete(req, env);
       }
       return fail(404, "not_found", "ไม่พบ");
     } catch (e) {
