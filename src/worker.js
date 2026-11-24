@@ -114,7 +114,7 @@ const FONTS = [DEF_FONT, "Prompt", "Montserrat", "Syncopate", "Unbounded", "Jose
 function cleanFont(v) { return FONTS.includes(v) ? v : DEF_FONT; }
 function cleanUrl(v) { v = String(v || "").trim().slice(0, 300); if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v)) v = "https://" + v; return /^https?:\/\/[^\s"<>]+$/i.test(v) ? v : ""; }
 function cleanSettings(s) {
-  return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME, theme: cleanTheme(s.theme), font: cleanFont(s.font), star: s.star !== false, presText: s.presText || "Miss Moohong", presUrl: cleanUrl(s.presUrl) };
+  return { fee: s.fee ?? null, open: s.open !== false, opensAt: s.opensAt ?? null, closesAt: s.closesAt ?? null, note: s.note || "", eventName: s.eventName || DEFAULT_EVENT_NAME, theme: cleanTheme(s.theme), font: cleanFont(s.font), star: s.star !== false, presText: s.presText || "Miss Moohong", presUrl: cleanUrl(s.presUrl) , trial: s.trial === true };
 }
 function schedule(s, t) {
   if (s.open === false) return false;
@@ -487,6 +487,7 @@ async function adminSettings(req, env) {
     theme: cleanTheme(b.theme),
     font: cleanFont(b.font),
     star: b.star !== false,
+    trial: b.trial === true,
     presText: String(b.presText || "").trim().replace(/\s+/g, " ").slice(0, 40) || "Miss Moohong",
     presUrl: cleanUrl(b.presUrl),
   };
