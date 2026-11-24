@@ -25,7 +25,8 @@
     { h: "คุณสมบัติผู้สมัคร", items: [
       "ผู้สมัคร 1 คน ลงแข่งขันได้ 1 พื้นที่เท่านั้น",
       "ใช้ Username เดียวกันสมัครซ้ำไม่ได้",
-      "ไม่สามารถนำสังกัดบ้านมาใช้เป็นนามสกุลได้"
+      "ไม่สามารถนำสังกัดบ้านมาใช้เป็นนามสกุลได้",
+      "ห้ามใช้ทั้งชื่อและนามสกุลที่เป็นชื่อเดียวกับบุคคลในชีวิตจริง"
     ] },
     { h: "กติกาการสมัคร", items: [
       "ผู้สมัครต้องเลือกพื้นที่ที่ต้องการลงประกวด",
@@ -63,11 +64,13 @@
 
   var S = {
     aSel: {}, aVis: [], offset: 0, settings: {}, content: {}, taken: {}, approved: [], me: [], admin: false, adminList: [],
-    regions: [], regSig: "", fontSig: "", themeSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
+    role: "", perms: [], staffName: "", regions: [], regSig: "", fontSig: "", themeSig: "", brandSig: "", loaded: false, view: "home", tab: "area", q: "", sel: null, busy: false, lastMe: {},
     rTab: "all", rQ: "", aTab: "all", aQ: "", mineSig: "", edSig: "", heroSig: "", settingsFilled: false,
     heroIdx: 0, heroTimer: null, polling: false, pollTimer: null, queue: Promise.resolve(), blobs: {}
   };
   function nowMs() { return Date.now() + S.offset; }
+  // สิทธิ์ของผู้ที่ล็อกอินหน้าแอดมิน (แอดมินหลักได้ทั้งหมด) ฝั่งเซิร์ฟเวอร์เช็กซ้ำทุกคำสั่ง ตรงนี้แค่ซ่อนปุ่ม
+  function can(k) { return S.admin && (S.role === "admin" || S.perms.indexOf(k) !== -1); }
 
   /* ---------- api ---------- */
   async function api(path, opts) {
@@ -87,12 +90,12 @@
       var r = await api("/api/state");
       if (r.ok) {
         var d = r.data; S.offset = d.now - Date.now(); S.settings = d.settings || {}; S.content = d.content || {};
-        S.regions = d.regions || []; syncRegions(S.regions); S.taken = d.taken || {}; S.approved = d.approved || []; S.admin = !!d.admin;
+        S.regions = d.regions || []; syncRegions(S.regions); S.taken = d.taken || {}; S.approved = d.approved || []; S.admin = !!d.admin; S.role = d.role || ""; S.perms = d.perms || []; S.staffName = d.staffName || "";
         var prev = S.lastMe; S.me = d.me || []; S.lastMe = {};
         S.me.forEach(function (m) { S.lastMe[m.slug] = m; });
         if (S.loaded) Object.keys(prev).forEach(function (k) { if (!S.lastMe[k] && !prev[k].slipAt) setStatus("พื้นที่ " + prev[k].country + " ไม่ได้อยู่กับคุณแล้ว (หมดเวลาหรือถูกปล่อย) ต้องกรอกและเลือกใหม่", true); });
         S.loaded = true; $("adminLink").hidden = !S.admin;
-        if (S.admin && S.view === "admin") { var l = await api("/api/admin/list"); if (l.ok) S.adminList = l.data.list || []; }
+        if (can("list") && S.view === "admin") { var l = await api("/api/admin/list"); if (l.ok) S.adminList = l.data.list || []; }
         if (!$("status").dataset.sticky) setStatus("");
         render();
       } else { setStatus("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กำลังลองใหม่...", true); }
@@ -388,7 +391,7 @@
   }
   function renderRoster() {
     var q = S.rQ.trim().toLowerCase();
-    var list = S.approved.filter(function (c) { return !q || (c.country + " " + c.fullName).toLowerCase().indexOf(q) !== -1; }).sort(function (x, y) { return x.country.localeCompare(y.country, "th"); });
+    var list = S.approved.filter(function (c) { return !q || (c.country + " " + c.fullName).toLowerCase().indexOf(q) !== -1; }).sort(function (x, y) { return x.country.localeCompare(y.country, "en"); });
     var host = $("rPeople"); host.textContent = ""; list.forEach(function (c) { host.appendChild(personCard(c)); });
     $("rEmpty").hidden = list.length > 0;
   }
@@ -500,16 +503,17 @@
     return p;
   }
   function rejectBox(m) {
-    var rj = m.reject, bx = mk("div", "rejbox"); bx.appendChild(mk("h4", null, "ใบสมัครของคุณไม่ผ่าน ต้องแก้ไข"));
+    var rj = m.reject, bx = mk("div", "rejbox"), needFull = rj.reasons.indexOf("realname") >= 0 && !String(m.fullName || "").trim(); bx.appendChild(mk("h4", null, "ใบสมัครของคุณไม่ผ่าน ต้องแก้ไข"));
     var ul = mk("ul");
     if (rj.reasons.indexOf("surname") >= 0) ul.appendChild(mk("li", null, "ใช้สังกัดบ้านเป็นนามสกุล: นามสกุลถูกลบแล้ว กรุณากรอกนามสกุลใหม่ (ห้ามใช้ชื่อสังกัดบ้าน)"));
+    if (rj.reasons.indexOf("realname") >= 0) ul.appendChild(mk("li", null, "ชื่อและนามสกุลซ้ำกับบุคคลในชีวิตจริง: ชื่อและนามสกุลถูกลบแล้ว กรุณากรอกใหม่ (ห้ามใช้ชื่อเดียวกับบุคคลในชีวิตจริง)"));
     if (rj.reasons.indexOf("photo") >= 0) ul.appendChild(mk("li", null, "รูป Portrait ไม่ผ่าน: รูปถูกลบแล้ว กรุณาอัปโหลดรูปใหม่ตามหลักเกณฑ์"));
     bx.appendChild(ul);
     if (rj.msg) bx.appendChild(mk("div", "rmsg", "ข้อความจากทีมงาน: " + rj.msg));
     var rn = mk("div", "rnote", "หมายเหตุ: กรุณาอ่านคุณสมบัติและกติกาอย่างละเอียด "); var rl = mk("a", null, "ไปที่กติกา"); rl.href = "#h-rules";
     rl.addEventListener("click", function (e) { e.preventDefault(); var t = $("h-rules"); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth", block: "start" }); });
     rn.appendChild(rl); bx.appendChild(rn);
-    if (rj.reasons.indexOf("surname") >= 0 && String(m.fullName || "").trim().split(/\s+/).length < 2) {
+    if (!needFull && rj.reasons.indexOf("surname") >= 0 && String(m.fullName || "").trim().split(/\s+/).length < 2) {
       var fr = mk("div", "fixrow"), li = mk("input", "input"); li.placeholder = "นามสกุลใหม่"; li.setAttribute("aria-label", "นามสกุลใหม่"); li.autocomplete = "off";
       var sv = mk("button", "btn sm", "บันทึกนามสกุล"); sv.type = "button";
       var er = mk("div", "err");
@@ -520,6 +524,18 @@
         S.mineSig = ""; await poll();
       });
       fr.appendChild(li); fr.appendChild(sv); bx.appendChild(fr); bx.appendChild(er);
+    }
+    if (needFull) {
+      var fr2 = mk("div", "fixrow"), ni = mk("input", "input"); ni.placeholder = "ชื่อและนามสกุลใหม่"; ni.setAttribute("aria-label", "ชื่อและนามสกุลใหม่"); ni.autocomplete = "off"; ni.maxLength = 60;
+      var sv2 = mk("button", "btn sm", "บันทึกชื่อและนามสกุล"); sv2.type = "button";
+      var er2 = mk("div", "err");
+      sv2.addEventListener("click", async function () {
+        var v = ni.value.trim().replace(/\s+/g, " "); if (v.length < 3 || !/\s/.test(v)) { er2.textContent = "กรอกทั้งชื่อและนามสกุล"; return; }
+        sv2.disabled = true; var r = await api("/api/fix", { method: "POST", json: { slug: m.slug, fullName: v } });
+        if (!r.ok) { sv2.disabled = false; er2.textContent = r.data.message || "บันทึกไม่สำเร็จ"; return; }
+        S.mineSig = ""; await poll();
+      });
+      fr2.appendChild(ni); fr2.appendChild(sv2); bx.appendChild(fr2); bx.appendChild(er2);
     }
     if (rj.reasons.indexOf("photo") >= 0 && !m.photoId) {
       var lab = mk("label", "btn sm", "อัปโหลดรูป Portrait ใหม่"); lab.style.cursor = "pointer"; lab.style.alignSelf = "flex-start";
@@ -871,12 +887,15 @@
   /* ---------- ADMIN ---------- */
   async function gateSubmit() {
     var err = $("gateErr"); err.textContent = ""; $("gateBtn").disabled = true;
-    var r = await api("/api/admin/login", { method: "POST", json: { password: $("gateCode").value } });
+    var nm = $("gateName").value.trim();
+    // มีชื่อ = co-admin (ใช้ชื่อและรหัสของตัวเอง) ไม่มีชื่อ = แอดมินหลัก
+    var r = nm ? await api("/api/co/login", { method: "POST", json: { name: nm, password: $("gateCode").value } }) : await api("/api/admin/login", { method: "POST", json: { password: $("gateCode").value } });
     $("gateBtn").disabled = false;
     if (!r.ok) { err.textContent = r.data.message || "เข้าสู่ระบบไม่สำเร็จ"; return; }
     $("gateCode").value = ""; await poll();
+    if (nm && !S.admin) err.textContent = "บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าหน้าแอดมิน ให้แอดมินหลักติ๊กสิทธิ์ให้ก่อน";
   }
-  async function logout() { await api("/api/admin/logout", { method: "POST" }); S.admin = false; S.adminList = []; $("adminLink").hidden = true; render(); }
+  async function logout() { await Promise.all([api("/api/admin/logout", { method: "POST" }), api("/api/co/logout", { method: "POST" })]); S.admin = false; S.role = ""; S.perms = []; S.staffName = ""; S.coLoaded = false; S.adminList = []; $("adminLink").hidden = true; render(); }
   function cxGet(k) { try { return localStorage.getItem("cx:" + k) === "1"; } catch (e) { return false; } }
   function cxSet(k, v) { try { localStorage.setItem("cx:" + k, v ? "1" : "0"); } catch (e) {} }
   function collapsible(head, isStop) {
@@ -900,11 +919,15 @@
   function renderAdmin() {
     $("adminGate").hidden = S.admin; $("adminBody").hidden = !S.admin; $("logoutBtn").hidden = !S.admin;
     if (!S.admin) return;
-    renderRegionsEd();
-    var all = S.adminList, cnt = { pending: 0, unpaid: 0, approved: 0, rejected: 0 };
+    $("logoutBtn").textContent = S.role === "co" ? "ออกจากระบบ (" + S.staffName + ")" : "ออกจากระบบ";
+    // ซ่อนส่วนที่ไม่มีสิทธิ์ (data-perm="main" = เฉพาะแอดมินหลัก)
+    document.querySelectorAll("#adminBody [data-perm]").forEach(function (el) { var k = el.getAttribute("data-perm"); el.hidden = k === "main" ? S.role !== "admin" : !can(k); });
+    if (S.role === "admin" && !S.coLoaded) { S.coLoaded = true; coLoad(); }
+    if (can("settings")) renderRegionsEd();
+    var all = can("list") ? S.adminList : [], cnt = { pending: 0, unpaid: 0, approved: 0, rejected: 0 };
     all.forEach(function (c) { cnt[c.state]++; });
     var st = $("aStats"); st.textContent = "";
-    [["ผู้สมัครทั้งหมด", all.length], ["รอยืนยัน", cnt.pending + cnt.unpaid + cnt.rejected], ["ยืนยันแล้ว", cnt.approved]].forEach(function (x) {
+    if (can("list")) [["ผู้สมัครทั้งหมด", all.length], ["รอยืนยัน", cnt.pending + cnt.unpaid + cnt.rejected], ["ยืนยันแล้ว", cnt.approved]].forEach(function (x) {
       var s = mk("div", "stat"); s.appendChild(mk("b", null, String(x[1]))); s.appendChild(mk("span", null, x[0])); st.appendChild(s);
     });
     makeTabs($("aTabs"), [{ key: "all", label: "ทั้งหมด", sub: all.length }, { key: "pending", label: "รอยืนยัน", sub: cnt.pending + cnt.unpaid + cnt.rejected }, { key: "approved", label: "ยืนยันแล้ว", sub: cnt.approved }], S.aTab, function (k) { S.aTab = k; renderAdmin(); });
@@ -919,7 +942,8 @@
     var host = $("aList"); host.textContent = ""; list.forEach(function (c) { host.appendChild(adminRow(c)); });
     bulkSync();
     $("aEmpty").hidden = list.length > 0;
-    renderEditor(); setupCollapse();
+    if (can("content")) renderEditor();
+    setupCollapse();
     if (!S.settingsFilled && S.loaded) {
       S.settingsFilled = true;
       $("setOpen").checked = S.settings.open !== false;
@@ -929,11 +953,12 @@
   function adminRow(c) {
     var st = c.state, slip = c.slip;
     var r = mk("div", "arow" + (S.aSel[c.slug] ? " picked" : "")), th = mk("div", "thumbs");
-    var pk = mk("label", "pick"), pc = mk("input"); pc.type = "checkbox"; pc.checked = !!S.aSel[c.slug]; pc.setAttribute("aria-label", "เลือก " + c.country);
+    var pk = mk("label", "pick"), pc = mk("input"); pk.hidden = !(can("review") || can("release") || can("media")); pc.type = "checkbox"; pc.checked = !!S.aSel[c.slug]; pc.setAttribute("aria-label", "เลือก " + c.country);
     pc.addEventListener("change", function () { if (pc.checked) S.aSel[c.slug] = true; else delete S.aSel[c.slug]; r.classList.toggle("picked", pc.checked); bulkSync(); });
     pk.appendChild(pc); th.appendChild(pk);
-    var pb = mk("button"); pb.type = "button"; pb.setAttribute("aria-label", "ดูรูปโปรไฟล์"); pb.appendChild(picEl(c.photoId, "รูป " + c.fullName));
-    if (c.photoId) pb.addEventListener("click", function () { lightbox(c.country + " · " + c.fullName, secureBlobUrl(c.photoId), function () { savePhoto(c); }); }); else pb.style.cursor = "default";
+    var media = can("media");
+    var pb = mk("button"); pb.type = "button"; pb.setAttribute("aria-label", "ดูรูปโปรไฟล์"); if (media) pb.appendChild(picEl(c.photoId, "รูป " + c.fullName)); else pb.appendChild(mk("div", "ph", c.hasPhoto ? "ไม่มีสิทธิ์ดูรูป" : "ไม่มีรูป"));
+    if (media && c.photoId) pb.addEventListener("click", function () { lightbox(c.country + " · " + c.fullName, secureBlobUrl(c.photoId), function () { savePhoto(c); }); }); else pb.style.cursor = "default";
     th.appendChild(pb);
     var sb = null;
     th.appendChild(pb); r.appendChild(th);
@@ -942,22 +967,22 @@
     info.appendChild(mk("div", "s", c.fullName + " · " + c.username));
     info.appendChild(mk("div", "s", "จองเมื่อ " + fmtDate(c.claimedAt)));
     if (false) info.appendChild(mk("div", "s", "สลิปส่งเมื่อ " + fmtDate(slip.uploadedAt) + (slip.amount ? " · แจ้งโอน " + baht(slip.amount) : "")));
-    if (c.reject) info.appendChild(mk("div", "s", "ไม่ผ่าน: " + c.reject.reasons.map(function (x) { return x === "surname" ? "ใช้สังกัดบ้านเป็นนามสกุล" : "รูป Portrait"; }).join(" · ") + (c.reject.msg ? " — " + c.reject.msg : "")));
+    if (c.reject) info.appendChild(mk("div", "s", "ไม่ผ่าน: " + c.reject.reasons.map(function (x) { return x === "surname" ? "ใช้สังกัดบ้านเป็นนามสกุล" : x === "realname" ? "ชื่อซ้ำบุคคลในชีวิตจริง" : "รูป Portrait"; }).join(" · ") + (c.reject.msg ? " — " + c.reject.msg : "")));
     else if (st === "rejected" && c.note) info.appendChild(mk("div", "s", "เหตุผล: " + c.note));
     var cw = mk("div"); cw.style.marginTop = "4px"; cw.appendChild(chip(c.reject ? "rejected" : (st === "approved" ? "approved" : "pending"), c.reject)); info.appendChild(cw); r.appendChild(info);
     var acts = mk("div", "acts");
     function act(label, cls, fn) { var b = mk("button", "btn sm " + cls, label); b.type = "button"; b.addEventListener("click", fn); acts.appendChild(b); }
-    if (st !== "approved") act("ยืนยัน ขึ้นทำเนียบ", "ok", function () { review(c, "approved", ""); });
-    if (c.slip && !c.reject) act("ไม่ผ่าน", "warn", function () { openReject([c]); });
-    if (c.photoId) act("บันทึกรูป", "ghost", function () { savePhoto(c); });
-    act("ปล่อยพื้นที่", "warn", function () { openRelease(c); });
+    if (can("review") && st !== "approved") act("ยืนยัน ขึ้นทำเนียบ", "ok", function () { review(c, "approved", ""); });
+    if (can("review") && c.slip && !c.reject) act("ไม่ผ่าน", "warn", function () { openReject([c]); });
+    if (media && c.photoId) act("บันทึกรูป", "ghost", function () { savePhoto(c); });
+    if (can("release")) act("ปล่อยพื้นที่", "warn", function () { openRelease(c); });
     r.appendChild(acts); return r;
   }
   function bulkPicked() { return S.aVis.filter(function (c) { return S.aSel[c.slug]; }); }
   function bulkSync() {
     var bar = $("aBulk"); if (!bar) return;
     var n = bulkPicked().length, tot = S.aVis.length;
-    bar.hidden = !tot;
+    bar.hidden = !tot || !(can("review") || can("release") || can("media"));
     var all = $("aSelAll"); all.checked = tot > 0 && n === tot; all.indeterminate = n > 0 && n < tot;
     $("aSelTxt").textContent = n ? "เลือกแล้ว " + n + " จาก " + tot + " รายการ" : "เลือกทั้งหมด (" + tot + ")";
     var b = $("aRelSel"); b.disabled = !n; b.textContent = n ? "ปล่อยที่เลือก (" + n + ")" : "ปล่อยที่เลือก";
@@ -1002,9 +1027,9 @@
     list = list.filter(function (c) { return c.slip; }); if (!list.length) { setStatus("รายการที่เลือกยังไม่มีสลิป ตรวจไม่ได้", true); return; }
     modal(function (m) {
       m.appendChild(mk("h3", null, list.length === 1 ? "ไม่ผ่าน: " + list[0].country : "ไม่ผ่าน " + list.length + " รายการ"));
-      m.appendChild(mk("div", "s", "เลือกเหตุผล (ติ๊กได้ทั้งสองข้อ) ผู้สมัครจะเห็นเหตุผลและต้องแก้ไขเอง"));
+      m.appendChild(mk("div", "s", "เลือกเหตุผล (ติ๊กได้หลายข้อ) ผู้สมัครจะเห็นเหตุผลและต้องแก้ไขเอง"));
       var boxes = {};
-      [["surname", "ใช้สังกัดบ้านเป็นนามสกุล", "ลบนามสกุลออก ให้ผู้สมัครกรอกใหม่"], ["photo", "รูป Portrait ไม่ผ่าน", "ลบรูปออก รอผู้สมัครอัปโหลดใหม่"]].forEach(function (x) {
+      [["surname", "ใช้สังกัดบ้านเป็นนามสกุล", "ลบนามสกุลออก ให้ผู้สมัครกรอกใหม่"], ["realname", "ชื่อ-นามสกุลซ้ำกับบุคคลในชีวิตจริง", "ลบชื่อและนามสกุลออก ให้ผู้สมัครกรอกใหม่"], ["photo", "รูป Portrait ไม่ผ่าน", "ลบรูปออก รอผู้สมัครอัปโหลดใหม่"]].forEach(function (x) {
         var lb = mk("label", "check"), cb = mk("input"); cb.type = "checkbox"; boxes[x[0]] = cb; lb.appendChild(cb);
         var sp = mk("span"); sp.appendChild(mk("b", null, x[1])); sp.appendChild(document.createTextNode(" · " + x[2])); lb.appendChild(sp); lb.style.margin = "8px 0"; m.appendChild(lb);
       });
@@ -1252,6 +1277,71 @@
     $("regMsg").textContent = "บันทึกแล้ว"; S.regSig = ""; await poll();
   }
 
+  var PERM_LIST = [
+    ["list", "ดูรายชื่อผู้สมัคร (รวม export CSV)"], ["media", "ดูรูปผู้สมัคร (และสลิป ถ้ามี)"], ["review", "ตรวจผู้สมัคร (อนุมัติ / ไม่ผ่าน)"],
+    ["release", "ปล่อยพื้นที่"], ["settings", "แก้ตั้งค่าการรับสมัคร (รวมรายชื่อพื้นที่)"], ["content", "แก้เนื้อหาเว็บและรูปหน้าแรก"]
+  ];
+  var PERM_NEEDS = { media: ["list"], review: ["list", "media"], release: ["list"] };
+  // ช่องติ๊กสิทธิ์: ติ๊กสิทธิ์ที่ต้องพึ่งสิทธิ์อื่นแล้วจะติ๊กสิทธิ์นั้นให้เอง (เช่น ตรวจผู้สมัคร ต้องดูรายชื่อและสลิปได้) ส่วนเซิร์ฟเวอร์ปรับให้ตรงกันซ้ำอีกชั้น
+  function permBoxes(initial, onChange) {
+    var wrap = mk("div"), boxes = {}; wrap.style.cssText = "display:flex;flex-direction:column;gap:6px;margin:6px 0";
+    function current() { return PERM_LIST.filter(function (x) { return boxes[x[0]].checked; }).map(function (x) { return x[0]; }); }
+    PERM_LIST.forEach(function (x) {
+      var lb = mk("label", "check"), cb = mk("input"); cb.type = "checkbox"; cb.checked = (initial || []).indexOf(x[0]) !== -1; boxes[x[0]] = cb;
+      cb.addEventListener("change", function () {
+        if (cb.checked) (PERM_NEEDS[x[0]] || []).forEach(function (n) { boxes[n].checked = true; });
+        else PERM_LIST.forEach(function (y) { if ((PERM_NEEDS[y[0]] || []).indexOf(x[0]) !== -1) boxes[y[0]].checked = false; });
+        if (onChange) onChange(current());
+      });
+      lb.appendChild(cb); lb.appendChild(mk("span", null, x[1])); wrap.appendChild(lb);
+    });
+    wrap.current = current; return wrap;
+  }
+  var newCoPerms = null;
+  async function coLoad() { var r = await api("/api/admin/coadmins"); if (r.ok) { S.coList = r.data.list || []; renderCo(); } }
+  function renderCo() {
+    var host = $("coList"); host.textContent = "";
+    if (!newCoPerms) { newCoPerms = permBoxes([]); $("coPerms").appendChild(newCoPerms); }
+    if (!(S.coList || []).length) { host.appendChild(mk("div", "hint", "ยังไม่มี co-admin")); return; }
+    S.coList.forEach(function (c) {
+      var row = mk("div", "gcard"), top = mk("div", "row"); top.style.justifyContent = "space-between";
+      var nm = mk("b", null, c.name); top.appendChild(nm);
+      var act = mk("div", "row");
+      var pw = mk("button", "btn ghost sm", "เปลี่ยนรหัส"); pw.type = "button";
+      var del = mk("button", "btn ghost sm", "ลบ"); del.type = "button";
+      act.appendChild(pw); act.appendChild(del); top.appendChild(act); row.appendChild(top);
+      var pm = mk("div", "hint"), saveT = null;
+      row.appendChild(permBoxes(c.perms, function (list) {
+        clearTimeout(saveT); pm.textContent = "กำลังบันทึกสิทธิ์...";
+        saveT = setTimeout(async function () {
+          var r = await adminCall("/api/admin/coadmin-perms", { id: c.id, perms: list });
+          pm.textContent = r.ok ? "บันทึกสิทธิ์แล้ว (มีผลทันที)" : "บันทึกสิทธิ์ไม่สำเร็จ";
+          if (r.ok) c.perms = r.data.perms;
+        }, 400);
+      })); row.appendChild(pm);
+      pw.addEventListener("click", function () {
+        if (row.querySelector(".copw")) return;
+        var f = mk("div", "row copw"), i = mk("input", "input"); i.type = "password"; i.placeholder = "รหัสผ่านใหม่ (8 ตัวอักษรขึ้นไป)"; i.autocomplete = "new-password"; i.style.flex = "1";
+        var ok = mk("button", "btn sm", "บันทึก"); ok.type = "button";
+        ok.addEventListener("click", async function () {
+          var r = await adminCall("/api/admin/coadmin-passwd", { id: c.id, password: i.value });
+          if (r.ok) { f.remove(); setStatus("เปลี่ยนรหัสของ " + c.name + " แล้ว"); setTimeout(function () { setStatus(""); }, 3000); }
+        });
+        f.appendChild(i); f.appendChild(ok); row.appendChild(f); i.focus();
+      });
+      del.addEventListener("click", async function () {
+        if (!window.confirm("ลบ co-admin “" + c.name + "” ? เขาจะเข้าหน้าแอดมินไม่ได้ทันที")) return;
+        var r = await adminCall("/api/admin/coadmin-delete", { id: c.id }); if (r.ok) coLoad();
+      });
+      host.appendChild(row);
+    });
+  }
+  async function coAdd() {
+    var n = $("coName"), p = $("coPass"), m = $("coMsg"); m.textContent = "";
+    var r = await adminCall("/api/admin/coadmin-add", { name: n.value, password: p.value, perms: newCoPerms ? newCoPerms.current() : [] });
+    if (r.ok) { n.value = ""; p.value = ""; $("coPerms").textContent = ""; newCoPerms = null; m.textContent = "เพิ่มแล้ว แจ้งชื่อและรหัสให้ co-admin เข้าที่หน้าแอดมินโดยกรอกชื่อและรหัสของตัวเอง"; coLoad(); } else m.textContent = r.data.message || "ไม่สำเร็จ";
+  }
+
   /* ---------- router ---------- */
   function route() {
     var h = (location.hash || "#home").slice(1); S.view = VIEWS.indexOf(h) !== -1 ? h : "home";
@@ -1292,6 +1382,8 @@
   ["thBg", "thAccent", "thGold"].forEach(function (id) { $(id).addEventListener("input", function () { S.settings.theme = { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value }; applyTheme(); }); });
   $("gateBtn").addEventListener("click", gateSubmit);
   $("gateCode").addEventListener("keydown", function (e) { if (e.key === "Enter") gateSubmit(); });
+  $("gateName").addEventListener("keydown", function (e) { if (e.key === "Enter") gateSubmit(); });
+  $("coAdd").addEventListener("click", coAdd);
   $("logoutBtn").addEventListener("click", logout);
   window.addEventListener("hashchange", route);
 

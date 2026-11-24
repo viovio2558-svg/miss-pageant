@@ -508,7 +508,8 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
 
     <section class="sec" id="adminGate" hidden style="max-width:460px">
       <h2>เข้าสู่หน้าแอดมิน</h2>
-      <div class="field"><label for="gateCode">รหัสผ่านแอดมิน</label><input class="input" id="gateCode" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="gateName">ชื่อ co-admin <small>(แอดมินหลักเว้นว่างไว้)</small></label><input class="input" id="gateName" maxlength="30" autocomplete="username"></div>
+      <div class="field"><label for="gateCode">รหัสผ่าน</label><input class="input" id="gateCode" type="password" autocomplete="current-password"></div>
       <div class="err" id="gateErr"></div>
       <div class="row"><button class="btn" id="gateBtn" type="button">เข้าสู่ระบบ</button></div>
     </section>
@@ -516,39 +517,51 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
     <div id="adminBody" hidden class="page">
       <div class="stats" id="aStats"></div>
 
-      <section class="sec">
+      <section class="sec" data-perm="list">
         <h2>ผู้สมัคร <small>ตรวจ ยืนยัน และบันทึกรูป</small></h2>
         <div class="tabs" role="tablist" id="aTabs"></div>
         <input class="input" id="aQ" type="search" placeholder="ค้นหาพื้นที่ ชื่อ หรือ Username" aria-label="ค้นหาผู้สมัคร">
         <div class="row">
-          <button class="btn ghost sm" id="zipAll" type="button">ZIP รูปทั้งหมด</button>
+          <button class="btn ghost sm" id="zipAll" type="button" data-perm="media">ZIP รูปทั้งหมด</button>
           <button class="btn ghost sm" id="zipPaid" type="button" hidden>ZIP</button>
           <button class="btn ghost sm" id="csvBtn" type="button">ดาวน์โหลดรายชื่อ CSV</button>
         </div>
         <div class="bulkbar" id="aBulk" hidden>
           <label class="check"><input type="checkbox" id="aSelAll"> <span id="aSelTxt">เลือกทั้งหมด</span></label>
-          <button class="btn ok sm" id="aApprSel" type="button" disabled>อนุมัติที่เลือก</button>
-          <button class="btn ghost sm" id="aSaveSel" type="button" disabled>บันทึกรูปที่เลือก</button>
-          <button class="btn warn sm" id="aRejSel" type="button" disabled>ไม่ผ่านที่เลือก</button>
-          <button class="btn warn sm" id="aRelSel" type="button" disabled>ปล่อยที่เลือก</button>
+          <button class="btn ok sm" id="aApprSel" type="button" data-perm="review" disabled>อนุมัติที่เลือก</button>
+          <button class="btn ghost sm" id="aSaveSel" type="button" data-perm="media" disabled>บันทึกรูปที่เลือก</button>
+          <button class="btn warn sm" id="aRejSel" type="button" data-perm="review" disabled>ไม่ผ่านที่เลือก</button>
+          <button class="btn warn sm" id="aRelSel" type="button" data-perm="release" disabled>ปล่อยที่เลือก</button>
         </div>
         <div class="alist" id="aList"></div>
         <div class="empty" id="aEmpty" hidden>ไม่มีรายการในหมวดนี้</div>
       </section>
 
-      <section class="sec">
+      <section class="sec" data-perm="content">
         <h2>เนื้อหาหน้าเว็บ <small>รูปที่แก้ไขได้</small></h2>
         <div id="contentEd" style="display:flex;flex-direction:column;gap:18px"></div>
       </section>
 
-      <section class="sec">
+      <section class="sec" data-perm="settings">
         <h2>รายชื่อพื้นที่ <small id="regCount"></small></h2>
         <div class="hint">พิมพ์ชื่อพื้นที่ 1 บรรทัดต่อ 1 แห่ง (รัฐ จังหวัด เขต ฯลฯ ของประเทศเจ้าภาพ) วางรายชื่อทั้งชุดได้เลย อย่าลบหรือเปลี่ยนชื่อพื้นที่ที่มีคนจองแล้ว</div>
         <textarea class="input" id="regText" rows="12" spellcheck="false"></textarea>
         <div class="row"><button class="btn" id="regSave" type="button">บันทึกรายชื่อพื้นที่</button><span class="hint" id="regMsg"></span></div>
       </section>
 
-      <section class="sec">
+      <section class="sec" data-perm="main">
+        <h2>ผู้ช่วยแอดมิน (co-admin) <small>กำหนดสิทธิ์ได้เป็นรายคน</small></h2>
+        <div class="hint">co-admin เข้าหน้านี้ด้วยชื่อและรหัสของตัวเอง (ช่องกรอกชื่ออยู่หน้าเข้าสู่หน้าแอดมิน) จะเห็นเฉพาะส่วนที่ติ๊กให้ ถ้าไม่ติ๊กสิทธิ์ใดเลยจะเข้าไม่ได้ แก้สิทธิ์หรือลบแล้วมีผลทันที เฉพาะแอดมินหลักเท่านั้นที่จัดการ co-admin ได้</div>
+        <div id="coList" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div class="form-grid">
+          <div class="field"><label for="coName">ชื่อ co-admin</label><input class="input" id="coName" maxlength="30" autocomplete="off"></div>
+          <div class="field"><label for="coPass">รหัสผ่าน (8 ตัวอักษรขึ้นไป)</label><input class="input" id="coPass" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="field"><label>สิทธิ์ของ co-admin คนใหม่</label><div id="coPerms"></div></div>
+        <div class="row"><button class="btn" id="coAdd" type="button">เพิ่ม co-admin</button><span class="hint" id="coMsg"></span></div>
+      </section>
+
+      <section class="sec" data-perm="settings">
         <h2>ตั้งค่าการรับสมัคร</h2>
         <div class="form-grid">
           <div class="field"><label for="setEvent">ชื่อเวที (แก้ได้ทุกปี)</label><input class="input" id="setEvent" maxlength="40" placeholder="ใส่ชื่อประเทศเจ้าภาพของปีนั้น เช่น Miss Japan"></div>
