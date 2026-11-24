@@ -923,7 +923,7 @@
     if (!S.settingsFilled && S.loaded) {
       S.settingsFilled = true;
       $("setOpen").checked = S.settings.open !== false;
-      $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || ""; $("setFont").value = S.settings.font || "Nunito Sans Expanded"; $("setStar").checked = S.settings.star !== false; $("setPresText").value = S.settings.presText || ""; $("setPresUrl").value = S.settings.presUrl || ""; var th = S.settings.theme || {}; $("thBg").value = th.bg || THEME_DEF.bg; $("thAccent").value = th.accent || THEME_DEF.accent; $("thGold").value = th.gold || THEME_DEF.gold;
+      $("setOpensAt").value = toLocalInput(S.settings.opensAt); $("setClosesAt").value = toLocalInput(S.settings.closesAt); $("setNote").value = S.settings.note || ""; $("setEvent").value = S.settings.eventName || ""; $("setFont").value = S.settings.font || "Nunito Sans Expanded"; $("setStar").checked = S.settings.star !== false; $("setTrial").checked = !!S.settings.trial; $("setPresText").value = S.settings.presText || ""; $("setPresUrl").value = S.settings.presUrl || ""; var th = S.settings.theme || {}; $("thBg").value = th.bg || THEME_DEF.bg; $("thAccent").value = th.accent || THEME_DEF.accent; $("thGold").value = th.gold || THEME_DEF.gold;
     }
   }
   function adminRow(c) {
@@ -1169,7 +1169,7 @@
     $("setMsg").textContent = "";
     if (o && c && c <= o) { $("setMsg").textContent = "เวลาปิดต้องหลังเวลาเปิด"; return; }
     btn.disabled = true;
-    var r = await adminCall("/api/admin/settings", { fee: fee === "" ? null : Number(fee), open: $("setOpen").checked, opensAt: o, closesAt: c, note: $("setNote").value.trim(), eventName: $("setEvent").value.trim(), font: $("setFont").value, star: $("setStar").checked, presText: $("setPresText").value.trim(), presUrl: $("setPresUrl").value.trim(), theme: { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value } });
+    var r = await adminCall("/api/admin/settings", { fee: fee === "" ? null : Number(fee), open: $("setOpen").checked, opensAt: o, closesAt: c, note: $("setNote").value.trim(), eventName: $("setEvent").value.trim(), font: $("setFont").value, star: $("setStar").checked, trial: $("setTrial").checked, presText: $("setPresText").value.trim(), presUrl: $("setPresUrl").value.trim(), theme: { bg: $("thBg").value, accent: $("thAccent").value, gold: $("thGold").value } });
     $("setMsg").textContent = r.ok ? "บันทึกแล้ว" : "บันทึกไม่สำเร็จ"; btn.disabled = false;
     if (r.ok) await poll();
   }
@@ -1218,6 +1218,15 @@
     if (!document.getElementById("fontLink")) { var l = document.createElement("link"); l.id = "fontLink"; l.rel = "stylesheet"; document.head.appendChild(l); }
     var l2 = document.getElementById("fontLink"); if (l2) l2.href = "https://fonts.googleapis.com/css2?family=" + (wide ? "Nunito+Sans:wdth,wght@75..125,200..1000" : encodeURIComponent(name).replace(/%20/g, "+") + ":wght@400;700") + "&display=swap";
   }
+  /* ---------- โหมดลองสมัคร (เปลี่ยนแค่หน้าตา) ---------- */
+  function applyTrial() {
+    var on = !!S.settings.trial;
+    document.querySelectorAll('[data-link="register"]').forEach(function (a) { a.textContent = on ? "ลองสมัคร" : "สมัคร"; });
+    var hb = $("heroReg"); if (hb) hb.textContent = on ? "ลองสมัคร" : "สมัคร";
+    var ey = $("regEyebrow"); if (ey) ey.textContent = on ? "ลองสมัคร (ช่วงทดลองระบบ)" : "สมัครเข้าประกวด";
+    var bn = $("trialBanner"); if (bn) bn.hidden = !on;
+  }
+
   function applyBrand() {
     var name = String(S.settings.eventName || "").trim() || "Miss Host";
     var sig = name + "|" + (S.settings.star !== false) + "|" + (S.settings.presText || "") + "|" + (S.settings.presUrl || ""); if (sig === S.brandSig) return; S.brandSig = sig;
@@ -1253,7 +1262,7 @@
   }
   function render() {
     renderLinks();
-    applyBrand(); applyTheme(); applyFont();
+    applyBrand(); applyTrial(); applyTheme(); applyFont();
     if (S.view === "home") renderHome(); else if (S.view === "roster") renderRoster(); else if (S.view === "register") renderRegister(); else if (S.view === "admin") renderAdmin();
     renderDock();
   }

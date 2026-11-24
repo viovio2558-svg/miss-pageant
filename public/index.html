@@ -403,7 +403,7 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
       <div class="hero-cta">
         <div class="hero-title" aria-hidden="true"><span id="heroName">Miss Host</span></div>
         <div class="presented" id="presHero"></div>
-        <a class="btn" href="#register">สมัคร</a>
+        <a class="btn" id="heroReg" href="#register">สมัคร</a>
         <div class="st" id="heroSt"></div>
       </div>
     </section>
@@ -439,10 +439,11 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
   <!-- REGISTER -->
   <main class="page" data-view="register" hidden>
     <header class="mast">
-      <div class="eyebrow">สมัครเข้าประกวด</div>
+      <div class="eyebrow" id="regEyebrow">สมัครเข้าประกวด</div>
       <h1 class="title" id="regTitle">Register Now for Miss Host</h1>
       <p class="lead">อ่านกติกา กรอกข้อมูล เลือกพื้นที่ แล้วกดยืนยัน (ไม่มีค่าสมัคร)</p>
-    </header>
+      <div class="hint" id="trialBanner" hidden>ช่วงทดลองระบบ: ข้อมูลที่ส่งเข้ามาเป็นการทดลอง ทีมงานอาจลบออกภายหลัง</div>
+          </header>
     <div id="closedNote" class="notice warn" hidden></div>
 
     <section class="sec" id="mineSec" hidden aria-labelledby="h-mine">
@@ -562,7 +563,8 @@ button.tile:disabled { cursor: not-allowed; opacity: .55; }
           <div class="field"><label for="setOpensAt">เปิดรับสมัคร</label><input class="input" id="setOpensAt" type="datetime-local"></div>
           <div class="field"><label for="setClosesAt">ปิดรับสมัคร</label><input class="input" id="setClosesAt" type="datetime-local"></div>
         </div>
-        <label class="check"><input type="checkbox" id="setOpen" checked> <span>เปิดรับสมัคร (ปิดตรงนี้เพื่อหยุดรับสมัครทันที ไม่สนเวลา)</span></label>
+        <label class="check"><input type="checkbox" id="setTrial"> <span>โหมดลองสมัคร (ปุ่ม “สมัคร” เปลี่ยนเป็น “ลองสมัคร” และมีแถบบอกว่าเป็นช่วงทดลอง)</span></label>
+      <label class="check"><input type="checkbox" id="setOpen" checked> <span>เปิดรับสมัคร (ปิดตรงนี้เพื่อหยุดรับสมัครทันที ไม่สนเวลา)</span></label>
         <div class="field"><label for="setNote">ประกาศบนหน้าแรก</label><textarea class="input" id="setNote" placeholder="เช่น ประกาศผลวันที่ ... หรือประกาศอื่น ๆ"></textarea></div>
         <div class="row"><button class="btn" id="setSave" type="button">บันทึกการตั้งค่า</button><span class="hint" id="setMsg"></span></div>
       </section>
